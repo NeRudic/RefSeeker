@@ -1,5 +1,6 @@
 import asyncio
 import json
+import urllib.parse
 
 from browser_use import ActionResult, BrowserSession, Controller
 
@@ -31,9 +32,19 @@ async def get_page_image_urls(browser_session: BrowserSession) -> ActionResult:
     except Exception:
         current_base_url = ""
 
+    if current_base_url:
+        state.current_page_url = current_base_url
+        state.visited_pages.append(current_base_url)
+        logger.info("Page URL: %s", current_base_url)
+        domain = urllib.parse.urlparse(current_base_url).netloc
+        if domain not in state.visited_domains:
+            state.visited_domains.add(domain)
+            state.total_sites_attempted += 1
+
     for _ in range(SCROLL_STEPS):
         await page.evaluate("() => window.scrollBy(0, document.body.scrollHeight / 4)")
         await asyncio.sleep(SCROLL_DELAY)
+    state.total_pages_scrolled += SCROLL_STEPS
     await page.evaluate("() => window.scrollTo(0, 0)")
 
     raw = await page.evaluate(r"""() => {
@@ -140,6 +151,9 @@ async def extract_subpage_links(browser_session: BrowserSession) -> ActionResult
             links = json.loads(raw) if raw else []
         except (json.JSONDecodeError, TypeError) as e:
             logger.warning("Failed to parse sub-page links result: %s", e)
+            links = []
+        if not isinstance(links, list):
+            logger.warning("Sub-page links result is not a list (%s), skipping", type(links).__name__)
             links = []
         if not links:
             return ActionResult(extracted_content="No sub-page links found on this page.")

@@ -25,6 +25,7 @@ JPEG_QUALITY = 85
 SCROLL_STEPS = 4
 SCROLL_DELAY = 0.5
 FETCH_TIMEOUT = 10  # seconds, for browser-side image fetch
+AGENT_TIMEOUT = 600  # seconds, max total agent runtime before forced stop
 LOG_FILE = "refseeker.log"
 LOG_MAX_BYTES = 5 * 1024 * 1024  # 5 MB
 LOG_BACKUP_COUNT = 3

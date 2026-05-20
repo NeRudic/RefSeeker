@@ -74,6 +74,7 @@ async def _verify_and_save(candidates: list[tuple]) -> list[str]:
     )
     max_retries = 3
 
+    state.gpt_calls += 1
     for attempt in range(max_retries):
         try:
             response = client.chat.completions.create(

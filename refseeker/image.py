@@ -44,18 +44,28 @@ MIME_TO_EXT = {
     'image/avif': 'avif',
 }
 
-_IMG_EXT_RE = re.compile(r'\.(jpe?g|png|gif|webp|bmp|avif|tiff?)(\?|#|$)', re.IGNORECASE)
+_NON_IMAGE_EXT_RE = re.compile(r'\.(css|js|json|xml|wasm|map|woff2?|eot|ttf|otf|pdf)(\?|#|$)', re.IGNORECASE)
 
 
 def _is_likely_image_url(url: str) -> bool:
+    """Check if a URL likely points to an image.
+
+    Uses negative filtering (reject known non-image files) rather than
+    positive (require .jpg/.png), so CDN URLs without extensions pass through.
+    """
     try:
         parsed = urllib.parse.urlparse(url)
         path = parsed.path
+        query = parsed.query
     except Exception:
         return False
-    if len(path) <= 3:
+    # Reject obviously non-image extensions
+    if _NON_IMAGE_EXT_RE.search(path):
         return False
-    return bool(_IMG_EXT_RE.search(path))
+    # Path must be meaningful or query params must be present (CDN pattern)
+    if len(path) <= 3 and not query:
+        return False
+    return True
 
 
 def _mime_to_ext(mime_type: str) -> str:

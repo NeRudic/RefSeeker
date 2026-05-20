@@ -55,10 +55,20 @@ async def _download_single(page, absolute_url: str) -> tuple[str, bytes]:
         try:
             with urllib.request.urlopen(req, timeout=URLLIB_TIMEOUT) as response:
                 image_bytes = response.read()
-                mime_type = response.headers.get('Content-Type', '')
-                if not mime_type or not mime_type.startswith('image/'):
-                    mime_type = _detect_mime_type(image_bytes)
+                content_type = response.headers.get('Content-Type', '')
+                mime_type = content_type if content_type.startswith('image/') else _detect_mime_type(image_bytes)
+
+                # Reject known non-image Content-Types (e.g. text/html error pages).
+                # The magic-byte check via _detect_mime_type is not reliable here
+                # because it defaults to 'image/jpeg' for unknown formats.
+                if content_type and not content_type.startswith('image/'):
+                    raise ValueError(
+                        f"Response is not an image (Content-Type: {content_type})"
+                    )
+
                 return mime_type, image_bytes
+        except ValueError:
+            raise
         except Exception as python_err:
             raise RuntimeError(
                 f"Browser download failed: {browser_err}. "
@@ -89,6 +99,7 @@ async def _download_candidates(
                 return
         absolute_url = urllib.parse.urljoin(base_url, url)
         async with sem:
+            state.download_attempts += 1
             logger.info("Downloading: %s", absolute_url)
             try:
                 mime_type, image_bytes = await _download_single(page, absolute_url)
