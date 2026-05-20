@@ -82,7 +82,8 @@ async def run_agent(query: str):
         f"EXECUTION ORDER (follow exactly on every page):\n"
         f'1. Try google.com first — search for "{search_query}" and click through to image results. '
         f"If Google is unresponsive (timeout / blank page) after 2 attempts, "
-        f"switch immediately to alternatives (Bing Images, DuckDuckGo Images).\n"
+        f"switch to Bing Images. Do NOT use DuckDuckGo — it has the same bot protection.\n"
+        f"   If both Google and Bing fail, go directly to the PREFERRED SITES listed below.\n"
         f"2. On EVERY page: call `get_page_image_urls` IMMEDIATELY after landing. "
         f"This action extracts all URLs, "
         f"downloads, checks resolution, verifies via GPT-4o vision, and saves approved "
@@ -122,7 +123,7 @@ async def run_agent(query: str):
         controller=controller,
         use_vision=False,
         max_history_items=20,
-        flash_mode=True,
+        flash_mode=False,
     )
 
     try:
