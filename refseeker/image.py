@@ -11,9 +11,13 @@ from .config import JPEG_QUALITY, RESIZE_DIM, logger
 
 
 def _sanitize_folder_name(name: str) -> str:
-    clean = re.sub(r'[\\/*?:"<>| ]', '_', name)
+    name = name.strip().lower()
+    clean = re.sub(r'[\\/*?:"<>| .]', '_', name)
     clean = re.sub(r'_+', '_', clean)
-    return clean.strip('_')
+    clean = clean.strip('_')
+    if not clean or clean in ('', '.', '..', '__'):
+        return 'other'
+    return clean[:40]
 
 
 def _detect_mime_type(image_bytes: bytes) -> str:
@@ -66,6 +70,48 @@ def _is_likely_image_url(url: str) -> bool:
     if len(path) <= 3 and not query:
         return False
     return True
+
+
+# Patterns for deriving full-resolution URLs from thumbnails
+_WORDPRESS_SIZE_RE = re.compile(r'-\d+x\d+(?=\.[a-zA-Z]{3,4}$)')
+_THUMB_DIR_RE = re.compile(r'/thumb/')
+
+
+def _resolve_full_resolution_url(url: str) -> str | None:
+    """Try to derive a full-resolution image URL from a thumbnail URL.
+
+    Handles known patterns:
+    - WordPress dimension suffix: image-300x200.jpg → image.jpg
+    - ``thumb/`` subdirectory: /thumb/photo.jpg → /photo.jpg
+    - Standalone size query param: ?w=300  → stripped
+
+    Returns the candidate full-res URL, or None if no transformation applies
+    (caller should use the original URL as fallback).
+    """
+    try:
+        parsed = urllib.parse.urlparse(url)
+    except Exception:
+        return None
+
+    path = parsed.path
+    new_path = path
+
+    # WordPress dimension suffix: -WxH before extension
+    new_path = _WORDPRESS_SIZE_RE.sub('', new_path)
+
+    # thumb/ directory in path
+    new_path = _THUMB_DIR_RE.sub('/', new_path)
+
+    if new_path == path:
+        # No path change — check if query is exclusively a size param (?w=NNN)
+        if parsed.query and re.fullmatch(r'(w|h|width|height)=\d+', parsed.query):
+            candidate = urllib.parse.urlunparse(parsed._replace(query=''))
+            return candidate if candidate != url else None
+        return None
+
+    # Reconstruct URL with modified path
+    candidate = urllib.parse.urlunparse(parsed._replace(path=new_path))
+    return candidate if candidate != url else None
 
 
 def _mime_to_ext(mime_type: str) -> str:

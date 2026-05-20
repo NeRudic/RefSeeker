@@ -12,7 +12,7 @@ class TestCollectionState:
 
     def test_reset_sets_query(self):
         assert self.state.query_name == "B-24 Liberator"
-        assert "B-24_Liberator" in self.state.output_dir
+        assert "b-24_liberator" in self.state.output_dir
         assert not self.state.saved_count
         assert not self.state.visited_pages
         assert not self.state.visited_domains
