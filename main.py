@@ -86,6 +86,27 @@ def mime_to_ext(mime_type: str) -> str:
     }
     return mapping.get(mime_type.lower(), 'jpg')
 
+
+def resize_for_api(image_bytes: bytes, max_dim: int = 768) -> tuple[bytes, str]:
+    """Resize image to max_dim on longest side for API calls.
+
+    Returns (resized_bytes, 'image/jpeg'). Keeps original bytes for saving untouched.
+    If already small enough, returns original bytes and original mime type is unknown — caller
+    should treat the returned mime type as advisory (it's always 'image/jpeg' after resize).
+    """
+    img = Image.open(BytesIO(image_bytes))
+    w, h = img.size
+    if w <= max_dim and h <= max_dim:
+        return image_bytes, 'image/jpeg'  # mime type hint; caller should use original
+    if w > h:
+        new_w, new_h = max_dim, int(h * max_dim / w)
+    else:
+        new_h, new_w = max_dim, int(w * max_dim / h)
+    img = img.resize((new_w, new_h), Image.LANCZOS)
+    buf = BytesIO()
+    img.save(buf, format='JPEG', quality=85)
+    return buf.getvalue(), 'image/jpeg'
+
 def parse_data_url(data_url: str) -> tuple[str, bytes]:
     """Parse base64 data URL to mime type and bytes."""
     match = re.match(r'^data:([^;]+);base64,(.+)$', data_url)
@@ -109,21 +130,21 @@ async def download_image_bytes(page, url: str) -> tuple[str, bytes]:
     absolute_url = urllib.parse.urljoin(base_url, url)
 
     # Method A: Try downloading inside the browser page context (bypasses CORS/auth restrictions)
+    # Note: browser-use CDS page.evaluate does NOT support async functions,
+    # so we use a promise chain with plain (...) => format.
     try:
         data_url = await page.evaluate("""
-            async (targetUrl) => {
-                const response = await fetch(targetUrl);
-                if (!response.ok) {
-                    throw new Error(`HTTP error! status: ${response.status}`);
-                }
-                const blob = await response.blob();
-                return new Promise((resolve, reject) => {
+            (targetUrl) => fetch(targetUrl)
+                .then(response => {
+                    if (!response.ok) throw new Error('HTTP error! status: ' + response.status);
+                    return response.blob();
+                })
+                .then(blob => new Promise((resolve, reject) => {
                     const reader = new FileReader();
                     reader.onloadend = () => resolve(reader.result);
-                    reader.onerror = () => reject(new Error("Failed to read blob as data URL"));
+                    reader.onerror = () => reject(new Error('Failed to read blob as data URL'));
                     reader.readAsDataURL(blob);
-                });
-            }
+                }))
         """, absolute_url)
         return parse_data_url(data_url)
     except Exception as browser_err:
@@ -324,8 +345,8 @@ async def batch_download_and_verify(image_urls_json: str, browser_session: Brows
     if not candidates:
         return ActionResult(extracted_content="No valid candidates after filtering.\n" + "\n".join(results))
 
-    # 4. Send ALL candidates to GPT-4o mini in a SINGLE API call
-    logger.info(f"Sending {len(candidates)} images to GPT-4o mini in one call...")
+    # 4. Send ALL candidates to GPT-4o mini in a SINGLE API call (resized to save tokens)
+    logger.info(f"Sending {len(candidates)} images (resized to 768px) to GPT-4o mini in one call...")
 
     prompt = f"""You are checking if images are suitable as high-quality reference photos for: "{query_name}".
 
@@ -352,25 +373,43 @@ Respond ONLY with a JSON object containing an "evaluations" array. One object pe
 
     content = [{"type": "text", "text": prompt}]
     for _, mime_type, image_bytes, _, _ in candidates:
-        b64 = base64.b64encode(image_bytes).decode('utf-8')
+        # Resize for API — saves tokens while keeping original for saving
+        api_bytes, api_mime = resize_for_api(image_bytes)
+        b64 = base64.b64encode(api_bytes).decode('utf-8')
         content.append({
             "type": "image_url",
-            "image_url": {"url": f"data:{mime_type};base64,{b64}"}
+            "image_url": {"url": f"data:{api_mime};base64,{b64}"}
         })
 
     # Rough check: warn if total base64 payload is very large (GPT-4o mini limit ~20MB input)
-    total_b64_size = sum(len(c[2]) for c in candidates)
+    total_b64_size = sum(len(resize_for_api(c[2])[0]) for c in candidates)
     if total_b64_size > 15 * 1024 * 1024:
         logger.warning(f"Batch payload is ~{total_b64_size // 1024 // 1024} MB, may hit API limits")
 
-    try:
-        response = openai_client.chat.completions.create(
-            model="gpt-4o-mini",
-            messages=[{"role": "user", "content": content}],
-            max_tokens=2000,
-            response_format={"type": "json_object"}
-        )
+    # Retry with exponential backoff on rate limit / transient errors
+    max_retries = 3
+    response = None
+    for attempt in range(max_retries):
+        try:
+            response = openai_client.chat.completions.create(
+                model="gpt-4o-mini",
+                messages=[{"role": "user", "content": content}],
+                max_tokens=2000,
+                response_format={"type": "json_object"}
+            )
+            break  # success
+        except Exception as e:
+            if attempt < max_retries - 1 and ("rate_limit" in str(e).lower() or "429" in str(e)):
+                wait = 2 ** (attempt + 2)  # 4s, 8s, 16s
+                logger.warning(f"GPT API rate limited, retrying in {wait}s (attempt {attempt + 2}/{max_retries})...")
+                await asyncio.sleep(wait)
+            else:
+                raise  # non-retryable or exhausted
 
+    if response is None:
+        return ActionResult(error="GPT API call failed after all retries")
+
+    try:
         raw_content = response.choices[0].message.content
         if not raw_content or not raw_content.strip():
             logger.error("GPT returned empty response")
@@ -520,8 +559,8 @@ Your goal is to collect reference images for "{query}".
 Behaviors:
 1. Prioritize sites that show multiple angles or details of the subject (e.g. stock, museum, ecommerce detail, 3D collections).
 2. Skip Pinterest, social media sites (like Instagram, Facebook, Reddit, Twitter/X), or sites requiring login.
-3. Once on a target page, get image URLs using `get_page_image_urls`. Immediately call `batch_download_and_verify` with those URLs.
-4. Then use `extract_subpage_links` to check for sub-page links (e.g. pic-1.htm, pic-2.htm, gallery/1, page2). If any exist, visit each sub-page, collect their image URLs, and call `batch_download_and_verify` for each one.
+3. **CRITICAL: On EVERY new page, call `get_page_image_urls` IMMEDIATELY — do NOT scroll, wait, or refresh first.** The function handles lazy-loading internally. Do not decide that a page "hasn't loaded" or is a "skeleton" — just call it. If `get_page_image_urls` returns URLs, immediately call `batch_download_and_verify` with them.
+4. After collecting images from the main page, use `extract_subpage_links` to check for sub-page links (e.g. pic-1.htm, pic-2.htm, gallery/1, page2). If any exist, visit each sub-page, collect their image URLs (call `get_page_image_urls` right away), and call `batch_download_and_verify` for each one.
 5. The `batch_download_and_verify` tool handles downloading, resolution checks, and batch vision validation using GPT-4o-mini in a SINGLE API call. It saves approved images and returns a summary.
 6. Stop searching once you have successfully saved at least 10 images (target is 10 to 30 quality images). Conclude your run and summarize what was saved. If any action returns an error, log it and adjust — do not blindly retry the same failing action.
 7. If `get_page_image_urls` returns an error or empty result, or if `batch_download_and_verify` fails repeatedly on the current site, leave that site and try a different one. Do not stay stuck on the same failing page.
