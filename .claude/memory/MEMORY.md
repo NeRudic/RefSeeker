@@ -1,0 +1,2 @@
+- [RefSeeker Project](project_refseeker.md) — Python-утилита сбора референсных изображений
+- [Categorization approach](feedback_categorization_approach.md) — без закрытого enum, только sanitization + generic prompt
