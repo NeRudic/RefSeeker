@@ -1,3 +1,7 @@
+# ── GPT-4o mini: vision verification + categorisation (ONLY image work) ──────
+# NOTE: agent navigation / planning uses DeepSeek (see agent.py).
+#       This module stays on GPT-4o mini because DeepSeek does not support vision.
+
 import asyncio
 import base64
 import json

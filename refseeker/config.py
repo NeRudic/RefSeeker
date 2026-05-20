@@ -14,6 +14,11 @@ GPT_MAX_TOKENS_BASE = 500
 GPT_MAX_TOKENS_PER_IMAGE = 50
 GPT_MODEL = "gpt-4o-mini"
 GPT_TIMEOUT = httpx.Timeout(120.0, connect=10.0, read=90.0)
+
+# ── DeepSeek (agent reasoning / navigation) ───────────────────────────────────
+DEEPSEEK_MODEL = "deepseek-v4-flash"
+DEEPSEEK_BASE_URL = "https://api.deepseek.com/v1"
+DEEPSEEK_TIMEOUT = httpx.Timeout(120.0, connect=10.0, read=90.0)
 DOWNLOAD_CONCURRENCY = 5
 URLLIB_TIMEOUT = 10
 JPEG_QUALITY = 85

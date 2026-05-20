@@ -3,10 +3,10 @@ import os
 
 import httpx
 from browser_use import Agent, Browser
-from browser_use.llm.openai.chat import ChatOpenAI
+from browser_use.llm.deepseek.chat import ChatDeepSeek
 
-from .client import get_openai_client
-from .config import GPT_MODEL, MAX_IMAGES, logger
+from .client import get_deepseek_client
+from .config import DEEPSEEK_BASE_URL, DEEPSEEK_MODEL, MAX_IMAGES, logger
 from .controller import controller
 from .state import state
 
@@ -16,22 +16,28 @@ async def run_agent(query: str):
     os.makedirs(state.output_dir, exist_ok=True)
 
     browser = Browser(headless=False, enable_default_extensions=False)
-    llm = ChatOpenAI(model=GPT_MODEL)
+    # ── DeepSeek: agent reasoning / navigation / planning ──────────────────
+    # NOTE: fallback to GPT-4o-mini possible via ChatOpenAI(model=GPT_MODEL)
+    llm = ChatDeepSeek(
+        model=DEEPSEEK_MODEL,
+        api_key=os.getenv("DEEPSEEK_API_KEY"),
+        base_url=DEEPSEEK_BASE_URL,
+    )
 
     base_search_query = query
     logger.info("Original search query: \"%s\"", base_search_query)
 
     print(f"\nSearch query: \"{base_search_query}\"")
-    print("Do you want to improve/expand the search query with GPT-4o mini?")
+    print("Do you want to improve/expand the search query with DeepSeek?")
     print("Note: this will consume additional tokens (estimated < 200 tokens).")
     choice = input("Enter 'y' to improve, anything else to keep as-is: ").strip().lower()
 
     search_query = base_search_query
     if choice == "y":
-        logger.info("Asking GPT-4o mini to improve the search query ...")
+        logger.info("Asking DeepSeek to improve the search query ...")
         try:
-            resp = get_openai_client().chat.completions.create(
-                model=GPT_MODEL,
+            resp = get_deepseek_client().chat.completions.create(
+                model=DEEPSEEK_MODEL,
                 messages=[{
                     "role": "user",
                     "content": (
