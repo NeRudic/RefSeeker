@@ -16,7 +16,7 @@ GPT_MODEL = "gpt-4o-mini"
 GPT_TIMEOUT = httpx.Timeout(120.0, connect=10.0, read=90.0)
 
 # ── DeepSeek (agent reasoning / navigation) ───────────────────────────────────
-DEEPSEEK_MODEL = "deepseek-v4-flash"
+DEEPSEEK_MODEL = "deepseek-chat"  # deepseek-v4-flash мапится на reasoning endpoint без tool_choice
 DEEPSEEK_BASE_URL = "https://api.deepseek.com/v1"
 DEEPSEEK_TIMEOUT = httpx.Timeout(120.0, connect=10.0, read=90.0)
 DOWNLOAD_CONCURRENCY = 5
