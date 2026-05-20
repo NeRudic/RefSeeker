@@ -1,0 +1,15 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(.venv/Scripts/python.exe -c \"import browser_use; print\\(browser_use.__version__\\)\")",
+      "Bash(.venv/Scripts/python.exe -c \"from browser_use import BrowserSession; print\\('BrowserSession OK'\\)\")",
+      "Bash(.venv/Scripts/python.exe -c ' *)",
+      "Bash(\"D:/Рабочий стол/Antigravity/RefSeeker/.venv/Scripts/python.exe\" -c \"from browser_use import Browser, Controller, ActionResult\")",
+      "Bash(\"D:/Рабочий стол/Antigravity/RefSeeker/.venv/Scripts/playwright.exe\" install --dry-run)",
+      "Bash(pip list *)",
+      "Bash(\"D:/Рабочий стол/Antigravity/RefSeeker/.venv/Scripts/python.exe\" -m pip list)",
+      "Bash(D:/Рабочий стол/Antigravity/RefSeeker/.venv/Scripts/python.exe *)",
+      "Bash(.venv/Scripts/python -c \"import sys; print\\(sys.executable\\)\")"
+    ]
+  }
+}

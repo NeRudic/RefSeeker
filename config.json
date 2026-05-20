@@ -1,0 +1,16 @@
+{
+    "whitelist": [
+        "net-maquettes.com",
+        "cybermodeler.com",
+        "inchhighguy.wordpress.com",
+        "grubbyfingersshop.com"
+    ],
+    "blacklist": [
+        "pinterest.com",
+        "instagram.com",
+        "facebook.com",
+        "reddit.com",
+        "twitter.com",
+        "x.com"
+    ]
+}
