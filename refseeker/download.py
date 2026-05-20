@@ -2,6 +2,8 @@ import asyncio
 import urllib.parse
 import urllib.request
 
+import httpx
+
 from .config import (
     BATCH_SIZE,
     DOWNLOAD_CONCURRENCY,
@@ -15,9 +17,22 @@ from .image import (
     _has_null_byte,
     _is_likely_image_url,
     _parse_data_url,
+    _resolve_full_resolution_url,
     _validate_image,
 )
 from .state import state
+
+_HEAD_TIMEOUT = httpx.Timeout(3.0, connect=2.0)
+
+
+async def _check_url_exists(url: str) -> bool:
+    """Quick HEAD request to verify a URL exists (returns 200)."""
+    try:
+        async with httpx.AsyncClient(timeout=_HEAD_TIMEOUT) as client:
+            response = await client.head(url, follow_redirects=True)
+            return response.status_code == 200
+    except Exception:
+        return False
 
 
 async def _download_single(page, absolute_url: str) -> tuple[str, bytes]:
@@ -98,6 +113,14 @@ async def _download_candidates(
             if state.is_full or url in state.downloaded_urls:
                 return
         absolute_url = urllib.parse.urljoin(base_url, url)
+
+        # Try to resolve thumbnail URL to full-resolution
+        resolved = _resolve_full_resolution_url(absolute_url)
+        if resolved is not None and resolved != absolute_url:
+            if await _check_url_exists(resolved):
+                log_lines.append(f"  {absolute_url}: resolved to full-res {resolved}")
+                absolute_url = resolved
+
         async with sem:
             state.download_attempts += 1
             logger.info("Downloading: %s", absolute_url)
