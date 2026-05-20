@@ -1,5 +1,6 @@
 import asyncio
 import json
+import re
 import urllib.parse
 
 from browser_use import ActionResult, BrowserSession, Controller
@@ -9,6 +10,13 @@ from .download import _download_candidates
 from .image import _is_likely_image_url
 from .state import state
 from .verify import _verify_and_save
+
+# Skip downloads for known junk URLs before they hit the pipeline
+_JUNK_URL_RE = re.compile(
+    r'ebayimg\.com|amazon\.|paypal|banner|placeholder|'
+    r'pixel[^s]|spacer|beacon|data:image/gif',
+    re.IGNORECASE,
+)
 
 controller = Controller()
 
@@ -93,7 +101,7 @@ async def get_page_image_urls(browser_session: BrowserSession) -> ActionResult:
         urls = []
 
     unique_urls = list(dict.fromkeys(urls))
-    image_urls = [u for u in unique_urls if _is_likely_image_url(u)]
+    image_urls = [u for u in unique_urls if _is_likely_image_url(u) and not _JUNK_URL_RE.search(u)]
     skipped = len(unique_urls) - len(image_urls)
     if skipped:
         logger.info("Filtered out %d non-image URLs (missing extension / too short)", skipped)

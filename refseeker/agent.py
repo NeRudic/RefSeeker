@@ -101,8 +101,12 @@ async def run_agent(query: str):
         f"- Dismiss any popup/cookie banners immediately.\n"
         f"- If a page has no images or 3+ errors occur in a row, move to the next site.\n"
         f"- Never visit: {', '.join(blacklist) if blacklist else 'none'}\n"
+        f"- After every navigation or click, immediately check the current URL. "
+        f"If it redirected to an unrelated page, call go_back() and retry.\n"
         f"- After typing into a search field, press Enter to submit.\n"
-        f"- Only call `done` after ALL preferred sites have been attempted.\n"
+        f"- Only call `done` after ALL preferred sites have been attempted. "
+        f"If fewer than {MAX_IMAGES} images were found, still pass success=True "
+        f"and report the actual count (e.g. 'collected 25/{MAX_IMAGES}') in text.\n"
         f"{site_instructions}"
     )
 
@@ -121,7 +125,7 @@ async def run_agent(query: str):
     )
 
     try:
-        await asyncio.wait_for(agent.run(), timeout=AGENT_TIMEOUT)
+        await asyncio.wait_for(agent.run(max_steps=25), timeout=AGENT_TIMEOUT)
     except asyncio.TimeoutError:
         logger.error("Agent run timed out after %ds", AGENT_TIMEOUT)
     except Exception as e:
