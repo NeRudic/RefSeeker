@@ -18,16 +18,8 @@ class CollectionState:
 
     # Observability
     session_start: float = 0.0
-    visited_pages: list[str] = field(default_factory=list)
-    visited_domains: set[str] = field(default_factory=set)
-    current_page_url: str = ""
-    total_sites_attempted: int = 0
-    total_pages_scrolled: int = 0
     gpt_calls: int = 0
     download_attempts: int = 0
-
-    # Guard: preferred sites that must be attempted before calling done
-    preferred_sites: list[str] = field(default_factory=list)
 
     def reset(self, query: str) -> None:
         self.query_name = query
@@ -37,14 +29,8 @@ class CollectionState:
         self.downloaded_urls.clear()
         self.filter_stats.clear()
         self.session_start = time.time()
-        self.visited_pages.clear()
-        self.visited_domains.clear()
-        self.current_page_url = ""
-        self.total_sites_attempted = 0
-        self.total_pages_scrolled = 0
         self.gpt_calls = 0
         self.download_attempts = 0
-        self.preferred_sites.clear()
 
     @property
     def is_full(self) -> bool:
@@ -58,8 +44,6 @@ class CollectionState:
         """Return a one-line metrics summary for logging."""
         parts = [
             f"saved={self.saved_count}/{MAX_IMAGES}",
-            f"sites={self.total_sites_attempted}",
-            f"pages={len(self.visited_pages)}",
             f"downloads={self.download_attempts}",
             f"gpt_calls={self.gpt_calls}",
             f"elapsed={self.elapsed:.0f}s",

@@ -1,109 +1,117 @@
 import asyncio
-import json
 import os
 
-from browser_use import Agent, Browser
-from browser_use.llm.deepseek.chat import ChatDeepSeek
+import httpx
 
-from .config import DEEPSEEK_BASE_URL, DEEPSEEK_MODEL, MAX_IMAGES, logger, AGENT_TIMEOUT
-from .controller import controller
+from .config import DOWNLOAD_CONCURRENCY, MAX_IMAGES, URLLIB_TIMEOUT, logger
+from .image import _detect_mime_type, _is_likely_image_url, _validate_image
+from .searcher import search_images
 from .state import state
+from .verify import _verify_and_save
+
+_DOWNLOAD_HEADERS = {
+    "User-Agent": (
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+        "AppleWebKit/537.36 (KHTML, like Gecko) "
+        "Chrome/120.0.0.0 Safari/537.36"
+    ),
+}
 
 
-async def run_agent(query: str):
+async def _download_one(url: str, sem: asyncio.Semaphore) -> tuple | None:
+    """Download a single image via HTTP, validate, return candidate tuple or None."""
+    async with sem:
+        if state.is_full or url in state.downloaded_urls:
+            return None
+        state.download_attempts += 1
+        logger.info("Downloading: %s", url)
+        try:
+            async with httpx.AsyncClient(
+                timeout=httpx.Timeout(URLLIB_TIMEOUT, connect=5.0)
+            ) as client:
+                resp = await client.get(url, headers=_DOWNLOAD_HEADERS, follow_redirects=True)
+                resp.raise_for_status()
+                image_bytes = resp.content
+                content_type = resp.headers.get("Content-Type", "")
+        except Exception as e:
+            logger.debug("Download failed: %s — %s", url, e)
+            return None
+
+        if content_type and not content_type.startswith("image/"):
+            logger.debug("Not an image (Content-Type: %s): %s", content_type, url)
+            state.filter_stats["not_image"] += 1
+            return None
+
+        mime_type = content_type if content_type.startswith("image/") else _detect_mime_type(image_bytes)
+        is_valid, width, height = _validate_image(image_bytes)
+        if not is_valid:
+            logger.debug("Corrupt image: %s", url)
+            state.filter_stats["corrupt"] += 1
+            return None
+
+        state.downloaded_urls.add(url)
+        return (url, mime_type, image_bytes, width, height)
+
+
+async def run_agent(query: str) -> None:
     state.reset(query)
     os.makedirs(state.output_dir, exist_ok=True)
 
-    browser = Browser(headless=False, enable_default_extensions=False)
-    # ── DeepSeek: agent reasoning / navigation / planning ──────────────────
-    # NOTE: fallback to GPT-4o-mini possible via ChatOpenAI(model=GPT_MODEL)
-    llm = ChatDeepSeek(
-        model=DEEPSEEK_MODEL,
-        api_key=os.getenv("DEEPSEEK_API_KEY"),
-        base_url=DEEPSEEK_BASE_URL,
-    )
+    # 1. Search multiple variants for broader coverage
+    search_queries = [
+        f"{query} walkaround",
+        f"{query} reference photos",
+    ]
 
-    logger.info("Search query: \"%s\"", query)
+    all_urls: list[str] = []
+    for q in search_queries:
+        urls = search_images(q, count=100)
+        all_urls.extend(urls)
 
-    whitelist: list[str] = []
-    blacklist: list[str] = []
-    try:
-        with open("config.json") as f:
-            config = json.load(f)
-        whitelist = [d.strip().lower() for d in config.get("whitelist", []) if d.strip()]
-        blacklist = [d.strip().lower() for d in config.get("blacklist", []) if d.strip()]
-        state.preferred_sites = whitelist.copy()
-    except FileNotFoundError:
-        logger.warning("config.json not found, no site filters applied.")
-    except json.JSONDecodeError as e:
-        logger.error("Failed to parse config.json: %s", e)
+    # 2. Deduplicate preserving order
+    seen: set[str] = set()
+    unique_urls: list[str] = []
+    for url in all_urls:
+        normalized = url.rstrip("/").lower()
+        if normalized not in seen:
+            seen.add(normalized)
+            unique_urls.append(url)
 
-    site_instructions = ""
-    if whitelist:
-        numbered_sites = "\n".join(f"  {i+1}. {s}" for i, s in enumerate(whitelist))
-        site_instructions += (
-            f"\nPREFERRED SITES (search these first, in this order):\n"
-            f"{numbered_sites}\n\n"
-            f"IMPORTANT — You MUST attempt ALL {len(whitelist)} sites above.\n"
-            f"If a site returns no results or is unreachable, mark it as failed and "
-            f"IMMEDIATELY move to the next site on the list.\n"
-            f"A single site returning 'Nothing Found' is NOT a reason to stop the entire task.\n"
-            f"The `done` tool will REJECT your call if you haven't attempted all sites."
-        )
+    logger.info("Total unique image URLs: %d", len(unique_urls))
 
-    task = (
-        f'Search for: "{query}"\n'
-        f"Goal: Collect {MAX_IMAGES} high-quality reference images of \"{query}\".\n\n"
-        f"EXECUTION ORDER:\n"
-        f"1. Go DIRECTLY to each PREFERRED SITE one by one (numbered list above).\n"
-        f"   Do NOT use Google or Bing unless all preferred sites have been exhausted.\n"
-        f"2. On EVERY page you land: call `get_page_image_urls` immediately. "
-        f"This extracts, downloads, verifies via GPT-4o vision, and saves approved images.\n"
-        f"3. Then call `extract_subpage_links`. If sub-pages exist, visit each and repeat step 2.\n"
-        f"4. Once all preferred sites are done and fewer than 10 images collected, "
-        f"try Bing Images. Avoid Google — it blocks automated browsers.\n"
-        f"5. Stop once {MAX_IMAGES} images are saved (or at least 10 if fewer available). "
-        f"Call `done` with a summary.\n\n"
-        f"RULES:\n"
-        f"- Wait 3-5 seconds after each navigation for the page to fully load.\n"
-        f"- Dismiss any popup/cookie banners immediately.\n"
-        f"- If a page has no images or 3+ errors occur in a row, move to the next site.\n"
-        f"- If a site returns 'Nothing Found' or a search error: do NOT stop. "
-        f"Immediately go to the next preferred site on the list.\n"
-        f"- Never visit: {', '.join(blacklist) if blacklist else 'none'}\n"
-        f"- After every navigation or click, immediately check the current URL. "
-        f"If it redirected to an unrelated page, call go_back() and retry.\n"
-        f"- After typing into a search field, press Enter to submit.\n"
-        f"- Only call `done` after ALL preferred sites have been attempted. "
-        f"The `done` tool checks this and will REJECT early calls.\n"
-        f"- If fewer than {MAX_IMAGES} images were found, still pass success=True "
-        f"and report the actual count (e.g. 'collected 25/{MAX_IMAGES}') in text.\n"
-        f"{site_instructions}"
-    )
+    if not unique_urls:
+        logger.warning("No image URLs found for query: %s", query)
+        logger.info("Session finished. %s", state.log_metrics())
+        return
 
-    logger.info("Starting reference downloader agent ...")
-    logger.info("Query: %s", query)
-    logger.info("Target directory: %s", state.output_dir)
+    # 3. Download with concurrency
+    sem = asyncio.Semaphore(DOWNLOAD_CONCURRENCY)
+    download_tasks = [_download_one(url, sem) for url in unique_urls]
+    results = await asyncio.gather(*download_tasks)
 
-    agent = Agent(
-        task=task,
-        llm=llm,
-        browser=browser,
-        controller=controller,
-        use_vision=False,
-        max_history_items=20,
-        flash_mode=False,
-    )
+    candidates = [r for r in results if r is not None]
+    logger.info("Downloaded %d valid candidates", len(candidates))
 
-    try:
-        await asyncio.wait_for(agent.run(max_steps=60), timeout=AGENT_TIMEOUT)
-    except asyncio.TimeoutError:
-        logger.error("Agent run timed out after %ds", AGENT_TIMEOUT)
-    except Exception as e:
-        logger.error("Agent run failed: %s", e, exc_info=True)
-    finally:
-        await browser.close()
+    if not candidates:
+        logger.warning("No valid images could be downloaded.")
+        logger.info("Session finished. %s", state.log_metrics())
+        return
+
+    # 4. Verify in batches via GPT-4o mini
+    batch_size = 50
+    for i in range(0, len(candidates), batch_size):
+        if state.is_full:
+            break
+        batch = candidates[i : i + batch_size]
         logger.info(
-            "Session finished. %s",
-            state.log_metrics(),
+            "Verifying batch %d/%d (%d images)...",
+            i // batch_size + 1,
+            (len(candidates) + batch_size - 1) // batch_size,
+            len(batch),
         )
+        await _verify_and_save(batch)
+
+        if state.saved_count % 10 == 0 and state.saved_count > 0:
+            logger.info("Progress: %s", state.log_metrics())
+
+    logger.info("Session finished. %s", state.log_metrics())

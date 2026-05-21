@@ -14,8 +14,7 @@ class TestCollectionState:
         assert self.state.query_name == "B-24 Liberator"
         assert "b-24_liberator" in self.state.output_dir
         assert not self.state.saved_count
-        assert not self.state.visited_pages
-        assert not self.state.visited_domains
+        assert not self.state.downloaded_urls
         assert self.state.session_start > 0
 
     def test_is_full(self):
@@ -35,13 +34,11 @@ class TestCollectionState:
     def test_log_metrics_empty(self):
         result = self.state.log_metrics()
         assert "saved=0/30" in result
-        assert "sites=0" in result
+        assert "downloads=0" in result
         assert "filters=" not in result  # no filter stats when empty
 
     def test_log_metrics_with_stats(self):
         self.state.saved_count = 5
-        self.state.total_sites_attempted = 2
-        self.state.visited_pages.append("https://example.com")
         self.state.download_attempts = 10
         self.state.gpt_calls = 1
         self.state.filter_stats["too_small"] = 3
@@ -49,18 +46,17 @@ class TestCollectionState:
 
         result = self.state.log_metrics()
         assert "saved=5/30" in result
-        assert "sites=2" in result
         assert "downloads=10" in result
         assert "gpt_calls=1" in result
         assert "filters={'too_small': 3, 'not_relevant': 2}" in result
 
     def test_reset_clears_previous_state(self):
         self.state.saved_count = 5
-        self.state.visited_pages.append("https://example.com")
+        self.state.downloaded_urls.add("https://example.com/photo.jpg")
         self.state.filter_stats["corrupt"] += 1
 
         self.state.reset("New Query")
         assert self.state.saved_count == 0
-        assert not self.state.visited_pages
+        assert not self.state.downloaded_urls
         assert not self.state.filter_stats
         assert self.state.query_name == "New Query"
