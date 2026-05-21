@@ -2,11 +2,9 @@ import asyncio
 import json
 import os
 
-import httpx
 from browser_use import Agent, Browser
 from browser_use.llm.deepseek.chat import ChatDeepSeek
 
-from .client import get_deepseek_client
 from .config import DEEPSEEK_BASE_URL, DEEPSEEK_MODEL, MAX_IMAGES, logger, AGENT_TIMEOUT
 from .controller import controller
 from .state import state
@@ -25,44 +23,7 @@ async def run_agent(query: str):
         base_url=DEEPSEEK_BASE_URL,
     )
 
-    base_search_query = query
-    logger.info("Original search query: \"%s\"", base_search_query)
-
-    print(f"\nSearch query: \"{base_search_query}\"")
-    print("Do you want to improve/expand the search query with DeepSeek?")
-    print("Note: this will consume additional tokens (estimated < 200 tokens).")
-    choice = input("Enter 'y' to improve, anything else to keep as-is: ").strip().lower()
-
-    search_query = base_search_query
-    if choice == "y":
-        logger.info("Asking DeepSeek to improve the search query ...")
-        try:
-            resp = get_deepseek_client().chat.completions.create(
-                model=DEEPSEEK_MODEL,
-                messages=[{
-                    "role": "user",
-                    "content": (
-                        f'I am searching for reference photos of "{query}". '
-                        f"Improve and expand this search query to get better, "
-                        f"more diverse results. "
-                        f"Return ONLY the improved search query string, nothing else. "
-                        f'The original format is: "{query} reference photos high quality". '
-                        f"Make it better for finding diverse, high-quality reference images."
-                    ),
-                }],
-                max_tokens=100,
-                timeout=httpx.Timeout(15.0),
-            )
-            improved = resp.choices[0].message.content.strip().strip("\"'")
-            if improved:
-                logger.info("Improved query: \"%s\"", improved)
-                search_query = improved
-            else:
-                logger.warning("Got empty response from GPT, using original query.")
-        except Exception as e:
-            logger.error("Failed to improve query: %s. Using original.", e)
-
-    logger.info("Final search query: \"%s\"", search_query)
+    logger.info("Search query: \"%s\"", query)
 
     whitelist: list[str] = []
     blacklist: list[str] = []
@@ -71,6 +32,7 @@ async def run_agent(query: str):
             config = json.load(f)
         whitelist = [d.strip().lower() for d in config.get("whitelist", []) if d.strip()]
         blacklist = [d.strip().lower() for d in config.get("blacklist", []) if d.strip()]
+        state.preferred_sites = whitelist.copy()
     except FileNotFoundError:
         logger.warning("config.json not found, no site filters applied.")
     except json.JSONDecodeError as e:
@@ -78,17 +40,23 @@ async def run_agent(query: str):
 
     site_instructions = ""
     if whitelist:
+        numbered_sites = "\n".join(f"  {i+1}. {s}" for i, s in enumerate(whitelist))
         site_instructions += (
-            f"\nPREFERRED SITES (search these first, prioritize them): "
-            f"{', '.join(whitelist)}"
+            f"\nPREFERRED SITES (search these first, in this order):\n"
+            f"{numbered_sites}\n\n"
+            f"IMPORTANT — You MUST attempt ALL {len(whitelist)} sites above.\n"
+            f"If a site returns no results or is unreachable, mark it as failed and "
+            f"IMMEDIATELY move to the next site on the list.\n"
+            f"A single site returning 'Nothing Found' is NOT a reason to stop the entire task.\n"
+            f"The `done` tool will REJECT your call if you haven't attempted all sites."
         )
 
     task = (
-        f'Search for: "{search_query}"\n'
+        f'Search for: "{query}"\n'
         f"Goal: Collect {MAX_IMAGES} high-quality reference images of \"{query}\".\n\n"
         f"EXECUTION ORDER:\n"
-        f"1. Go DIRECTLY to each PREFERRED SITE one by one. "
-        f"Do NOT use Google or Bing unless all preferred sites have been exhausted.\n"
+        f"1. Go DIRECTLY to each PREFERRED SITE one by one (numbered list above).\n"
+        f"   Do NOT use Google or Bing unless all preferred sites have been exhausted.\n"
         f"2. On EVERY page you land: call `get_page_image_urls` immediately. "
         f"This extracts, downloads, verifies via GPT-4o vision, and saves approved images.\n"
         f"3. Then call `extract_subpage_links`. If sub-pages exist, visit each and repeat step 2.\n"
@@ -100,12 +68,15 @@ async def run_agent(query: str):
         f"- Wait 3-5 seconds after each navigation for the page to fully load.\n"
         f"- Dismiss any popup/cookie banners immediately.\n"
         f"- If a page has no images or 3+ errors occur in a row, move to the next site.\n"
+        f"- If a site returns 'Nothing Found' or a search error: do NOT stop. "
+        f"Immediately go to the next preferred site on the list.\n"
         f"- Never visit: {', '.join(blacklist) if blacklist else 'none'}\n"
         f"- After every navigation or click, immediately check the current URL. "
         f"If it redirected to an unrelated page, call go_back() and retry.\n"
         f"- After typing into a search field, press Enter to submit.\n"
         f"- Only call `done` after ALL preferred sites have been attempted. "
-        f"If fewer than {MAX_IMAGES} images were found, still pass success=True "
+        f"The `done` tool checks this and will REJECT early calls.\n"
+        f"- If fewer than {MAX_IMAGES} images were found, still pass success=True "
         f"and report the actual count (e.g. 'collected 25/{MAX_IMAGES}') in text.\n"
         f"{site_instructions}"
     )
@@ -125,7 +96,7 @@ async def run_agent(query: str):
     )
 
     try:
-        await asyncio.wait_for(agent.run(max_steps=25), timeout=AGENT_TIMEOUT)
+        await asyncio.wait_for(agent.run(max_steps=60), timeout=AGENT_TIMEOUT)
     except asyncio.TimeoutError:
         logger.error("Agent run timed out after %ds", AGENT_TIMEOUT)
     except Exception as e:

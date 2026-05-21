@@ -26,6 +26,9 @@ class CollectionState:
     gpt_calls: int = 0
     download_attempts: int = 0
 
+    # Guard: preferred sites that must be attempted before calling done
+    preferred_sites: list[str] = field(default_factory=list)
+
     def reset(self, query: str) -> None:
         self.query_name = query
         self.query_folder = _sanitize_folder_name(query)
@@ -41,6 +44,7 @@ class CollectionState:
         self.total_pages_scrolled = 0
         self.gpt_calls = 0
         self.download_attempts = 0
+        self.preferred_sites.clear()
 
     @property
     def is_full(self) -> bool:

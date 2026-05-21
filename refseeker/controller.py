@@ -4,6 +4,7 @@ import re
 import urllib.parse
 
 from browser_use import ActionResult, BrowserSession, Controller
+from browser_use.tools.views import DoneAction
 
 from .config import MAX_IMAGES, SCROLL_DELAY, SCROLL_STEPS, logger
 from .download import _download_candidates
@@ -58,6 +59,12 @@ async def get_page_image_urls(browser_session: BrowserSession) -> ActionResult:
     raw = await page.evaluate(r"""() => {
         const result = new Set();
         document.querySelectorAll('img').forEach(img => {
+            // If direct parent is <a> linking to a full-size image, use href instead of src
+            const p = img.parentElement;
+            if (p && p.tagName === 'A' && /\.(jpg|jpeg|png|webp)(\?|#|$)/i.test(p.getAttribute('href') || '')) {
+                result.add(p.href);
+                return;
+            }
             const c = [img.src, img.getAttribute('src'), img.dataset.src,
                        img.dataset.lazySrc, img.dataset.original,
                        img.dataset.url, img.dataset.image];
@@ -173,3 +180,39 @@ async def extract_subpage_links(browser_session: BrowserSession) -> ActionResult
     except Exception as e:
         logger.error("Failed to extract sub-page links: %s", e)
         return ActionResult(error=f"Failed to extract sub-page links: {e}")
+
+
+@controller.action(
+    "Complete task with a final message. "
+    "CRITICAL: only call this after ALL preferred sites have been attempted.",
+    param_model=DoneAction,
+)
+async def done(params: DoneAction) -> ActionResult:
+    print(">>> КАСТОМНЫЙ done() ВЫЗВАН <<<", flush=True)
+
+    """Finish the image collection task. Rejects early calls before all preferred sites visited."""
+
+    if state.preferred_sites and state.total_sites_attempted < len(state.preferred_sites):
+        remaining = set(state.preferred_sites) - state.visited_domains
+        logger.warning(
+            "Agent attempted done early: %d/%d preferred sites visited. Remaining: %s",
+            state.total_sites_attempted,
+            len(state.preferred_sites),
+            sorted(remaining),
+        )
+        return ActionResult(
+            error=(
+                f"Cannot call done yet — only attempted "
+                f"{state.total_sites_attempted}/{len(state.preferred_sites)} preferred sites. "
+                f"Remaining: {', '.join(sorted(remaining))}. "
+                f"Navigate to each remaining site, call get_page_image_urls on every page, "
+                f"and only then call done."
+            )
+        )
+
+    return ActionResult(
+        is_done=True,
+        success=params.success,
+        extracted_content=params.text,
+        long_term_memory=f"Task completed: {params.success}",
+    )

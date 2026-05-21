@@ -11,7 +11,11 @@
       "Bash(D:/Рабочий стол/Antigravity/RefSeeker/.venv/Scripts/python.exe *)",
       "Bash(.venv/Scripts/python -c \"import sys; print\\(sys.executable\\)\")",
       "Bash(git *)",
-      "Bash(.venv/Scripts/python -m pytest tests/ -v)"
+      "Bash(.venv/Scripts/python -m pytest tests/ -v)",
+      "Bash(.venv/Scripts/python -m pytest tests/ -v --tb=short)",
+      "WebSearch",
+      "WebFetch(domain:openai.com)",
+      "WebFetch(domain:platform.openai.com)"
     ]
   }
 }
