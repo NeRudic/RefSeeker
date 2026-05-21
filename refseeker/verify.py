@@ -1,42 +1,47 @@
-# ── GPT-4o mini: vision verification + categorisation (ONLY image work) ──────
-# NOTE: agent navigation / planning uses DeepSeek (see agent.py).
-#       This module stays on GPT-4o mini because DeepSeek does not support vision.
+# ── Gemini 2.5 Flash: vision verification ──────────────────────────
 
 import asyncio
-import base64
+import io
 import json
 import os
 
-import httpx
+import PIL.Image
+import google.generativeai as genai
 
-from .client import get_openai_client
 from .config import (
     GPT_MAX_TOKENS_BASE,
     GPT_MAX_TOKENS_PER_IMAGE,
-    GPT_MODEL,
-    GPT_TIMEOUT,
+    GEMINI_API_KEY,
     logger,
 )
 from .image import (
     _check_disk_space,
     _mime_to_ext,
-    _resize_for_api,
-    _sanitize_folder_name,
 )
 from .state import state
 
+genai.configure(api_key=GEMINI_API_KEY)
+_model = None
+
+
+def _get_model():
+    global _model
+    if _model is None:
+        _model = genai.GenerativeModel("gemini-2.5-flash")
+    return _model
+
 
 async def _verify_and_save(candidates: list[tuple]) -> list[str]:
-    """Send candidates to GPT-4o mini, save approved images, return log lines."""
+    """Send candidates to Gemini 2.5 Flash, save approved images, return log lines."""
     log_lines: list[str] = []
 
     if not candidates:
         return log_lines
 
     logger.info(
-        "Sending %d images to GPT-4o mini for verification ...", len(candidates)
+        "Sending %d images to Gemini 2.5 Flash for verification ...", len(candidates)
     )
-    client = get_openai_client()
+    model = _get_model()
 
     prompt = (
         f'You are checking if images are suitable as high-quality reference photos for: '
@@ -45,33 +50,21 @@ async def _verify_and_save(candidates: list[tuple]) -> list[str]:
         f'1. Is it relevant to "{state.query_name}"?\n'
         f'2. Is it high quality (sharp, detailed, not blurry, not pixelated)?\n'
         f'3. Is it watermarked or does it contain prominent text overlays '
-        f'(excluding tiny photographer signatures)?\n'
-        f'4. Assign it to a logical category describing what part or aspect '
-        f'of the subject is shown. Aim for 5-10 distinct categories across all images — '
-        f'not too few (don\'t lump everything into one), '
-        f'not too many (avoid one-off categories for single images). '
-        f'Be consistent: use the SAME category name for similar images. '
-        f'Use concrete descriptive names (avoid generic words like "part" or "view"). '
-        f'Use lowercase_latin_with_underscores. '
-        f'If unsure, use "other".\n\n'
+        f'(excluding tiny photographer signatures)?\n\n'
         f'Respond ONLY with a JSON object containing an "evaluations" array. '
-        f'One object per image, in the SAME order:\n\n'
+        f'One object per image, in the SAME order. '
+        f'Keep each reason under 5 words.\n\n'
         f'{{"evaluations": [{{"index": 0, "relevant": true, "high_quality": true, '
-        f'"watermarked": false, "category": "landing_gear", '
-        f'"reason": "clear shot of landing gear struts and wheel"}}]}}'
+        f'"watermarked": false, '
+        f'"reason": "clear side view"}}]}}'
     )
 
-    content: list[dict] = [{"type": "text", "text": prompt}]
-    for _, mime_type, image_bytes, _, _ in candidates:
-        api_bytes, api_mime = _resize_for_api(image_bytes)
-        b64 = base64.b64encode(api_bytes).decode("utf-8")
-        content.append({
-            "type": "image_url",
-            "image_url": {"url": f"data:{api_mime};base64,{b64}"},
-        })
+    pil_images = []
+    for _, _, image_bytes, _, _ in candidates:
+        pil_images.append(PIL.Image.open(io.BytesIO(image_bytes)))
 
     max_tokens = min(
-        4096,
+        8192,
         GPT_MAX_TOKENS_BASE + len(candidates) * GPT_MAX_TOKENS_PER_IMAGE,
     )
     max_retries = 3
@@ -79,13 +72,14 @@ async def _verify_and_save(candidates: list[tuple]) -> list[str]:
     state.gpt_calls += 1
     for attempt in range(max_retries):
         try:
-            response = client.chat.completions.create(
-                model=GPT_MODEL,
-                messages=[{"role": "user", "content": content}],
-                max_tokens=max_tokens,
-                response_format={"type": "json_object"},
-                timeout=GPT_TIMEOUT,
+            response = model.generate_content(
+                [prompt] + pil_images,
+                generation_config=genai.GenerationConfig(
+                    response_mime_type="application/json",
+                    max_output_tokens=max_tokens,
+                ),
             )
+            raw_content = response.text
             break
         except Exception as e:
             err_str = str(e).lower()
@@ -95,11 +89,12 @@ async def _verify_and_save(candidates: list[tuple]) -> list[str]:
                 or "500" in err_str
                 or "502" in err_str
                 or "timeout" in err_str
+                or "quota" in err_str
             )
             if attempt < max_retries - 1 and should_retry:
                 wait = 2 ** (attempt + 2)
                 logger.warning(
-                    "GPT API error, retrying in %ds (%d/%d): %s",
+                    "Gemini API error, retrying in %ds (%d/%d): %s",
                     wait,
                     attempt + 2,
                     max_retries,
@@ -108,29 +103,28 @@ async def _verify_and_save(candidates: list[tuple]) -> list[str]:
                 await asyncio.sleep(wait)
             else:
                 logger.warning(
-                    "GPT API call failed (%d/%d): %s",
+                    "Gemini API call failed (%d/%d): %s",
                     attempt + 1, max_retries, e,
                 )
-                log_lines.append(f"  GPT API call failed: {e}")
+                log_lines.append(f"  Gemini API call failed: {e}")
                 return log_lines
 
-    raw_content = response.choices[0].message.content  # type: ignore[union-attr]
-    if not raw_content or not raw_content.strip():
-        log_lines.append("  GPT returned empty response")
-        return log_lines
+    print("Gemini RAW:", raw_content[:500], flush=True)
 
-    print("GPT RAW:", raw_content[:500], flush=True)
+    if not raw_content or not raw_content.strip():
+        log_lines.append("  Gemini returned empty response")
+        return log_lines
 
     try:
         parsed = json.loads(raw_content)
     except json.JSONDecodeError as e:
-        logger.error("GPT returned invalid JSON: %s", e)
-        log_lines.append(f"  GPT returned invalid JSON: {e}")
+        logger.error("Gemini returned invalid JSON: %s", e)
+        log_lines.append(f"  Gemini returned invalid JSON: {e}")
         return log_lines
 
     evaluations = parsed.get("evaluations", parsed if isinstance(parsed, list) else [])
     if not evaluations:
-        log_lines.append("  GPT returned no evaluations")
+        log_lines.append("  Gemini returned no evaluations")
         return log_lines
 
     seen_indices: set[int] = set()
@@ -138,7 +132,7 @@ async def _verify_and_save(candidates: list[tuple]) -> list[str]:
         idx = eval_item.get("index")
         if idx is not None:
             if idx in seen_indices:
-                logger.warning("Duplicate index %d in GPT evaluations — skipping", idx)
+                logger.warning("Duplicate index %d in Gemini evaluations — skipping", idx)
                 continue
             seen_indices.add(idx)
 
@@ -167,20 +161,14 @@ async def _verify_and_save(candidates: list[tuple]) -> list[str]:
                 log_lines.append(f"  {url}: SKIPPED — low disk space")
                 break
             state.saved_count += 1
-            category = (eval_item.get("category") or "other").strip()
-            if not category:
-                category = "other"
-            category_dir = os.path.join(state.output_dir, _sanitize_folder_name(category))
             try:
-                os.makedirs(category_dir, exist_ok=True)
                 ext = _mime_to_ext(mime_type)
                 file_name = f"image_{state.saved_count}.{ext}"
-                file_path = os.path.join(category_dir, file_name)
+                file_path = os.path.join(state.output_dir, file_name)
                 with open(file_path, "wb") as f:
                     f.write(image_bytes)
                 log_lines.append(
-                    f"  {url}: SAVED ({state.saved_count}/{state.max_images}) "
-                    f"[{category}] — {reason}"
+                    f"  {url}: SAVED ({state.saved_count}/{state.max_images}) — {reason}"
                 )
                 logger.info("Saved image %d/%d -> %s", state.saved_count, state.max_images, file_path)
             except OSError as e:

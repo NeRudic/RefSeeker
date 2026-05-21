@@ -4,7 +4,7 @@ import os
 import httpx
 
 from .config import DOWNLOAD_CONCURRENCY, URLLIB_TIMEOUT, logger
-from .image import _detect_mime_type, _is_likely_image_url, _validate_image
+from .image import _detect_mime_type, _validate_image
 from .searcher import search_images
 from .state import state
 from .verify import _verify_and_save

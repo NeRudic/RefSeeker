@@ -1,9 +1,9 @@
-# Текущая задача: агент тратит ~20 шагов на cybermodeler.com пытаясь достать full-size JPG через thumbnails
+# Текущая задача: Serper API возвращает мало релевантных изображений для некоторых запросов
 
-**Корень:** `get_page_image_urls` возвращает только thumbnail URL (150x100px), агент не получает full-size ссылки.
+**Корень:** `searcher.py` делает 2 запроса (`"query walkaround"`, `"query reference photos"`) по 100 результатов. Качество зависит от Serper индекса.
 
-**Файл для изучения:** `refseeker/controller.py` — функция `get_page_image_urls`
+**Файл для изучения:** `refseeker/searcher.py` — функция `search_images`
 
-**Критерий успеха:** на странице cybermodeler.com/airplanes/a20/a20.html функция возвращает хотя бы 5 URL полноразмерных JPG (не thumbnails)
+**Критерий успеха:** для запроса "A-20G Havoc" возвращается 20+ релевантных full-size JPG
 
-**Таймаут сессии:** 600s — поднять до 900s как отдельный шаг после основной задачи
+**Таймаут сессии:** 600s

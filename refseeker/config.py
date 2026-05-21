@@ -2,22 +2,19 @@ import logging
 import os
 from logging.handlers import RotatingFileHandler
 
-import httpx
 from dotenv import load_dotenv
 
+load_dotenv()
+
 # ── Constants ────────────────────────────────────────────────────────────────
-BATCH_SIZE = 50
+BATCH_SIZE = 25
 RESIZE_DIM = 768
 MIN_IMAGE_DIM = 300
 GPT_MAX_TOKENS_BASE = 500
-GPT_MAX_TOKENS_PER_IMAGE = 50
-GPT_MODEL = "gpt-4o-mini"
-GPT_TIMEOUT = httpx.Timeout(120.0, connect=10.0, read=90.0)
+GPT_MAX_TOKENS_PER_IMAGE = 150
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 
-# ── DeepSeek (agent reasoning / navigation) ───────────────────────────────────
-DEEPSEEK_MODEL = "deepseek-chat"  # deepseek-v4-flash мапится на reasoning endpoint без tool_choice
-DEEPSEEK_BASE_URL = "https://api.deepseek.com/v1"
-DEEPSEEK_TIMEOUT = httpx.Timeout(120.0, connect=10.0, read=90.0)
+# ── HTTP ─────────────────────────────────────────────────────────────────────
 DOWNLOAD_CONCURRENCY = 5
 URLLIB_TIMEOUT = 10
 JPEG_QUALITY = 85
@@ -28,8 +25,6 @@ AGENT_TIMEOUT = 600  # seconds, max total agent runtime before forced stop
 LOG_FILE = "refseeker.log"
 LOG_MAX_BYTES = 5 * 1024 * 1024  # 5 MB
 LOG_BACKUP_COUNT = 3
-
-load_dotenv()
 
 # ── Logging setup ────────────────────────────────────────────────────────────
 logger = logging.getLogger("refseeker")
