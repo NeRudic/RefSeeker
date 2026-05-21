@@ -6,7 +6,6 @@ import httpx
 from dotenv import load_dotenv
 
 # ── Constants ────────────────────────────────────────────────────────────────
-MAX_IMAGES = 30
 BATCH_SIZE = 50
 RESIZE_DIM = 768
 MIN_IMAGE_DIM = 300

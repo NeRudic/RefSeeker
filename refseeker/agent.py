@@ -3,7 +3,7 @@ import os
 
 import httpx
 
-from .config import DOWNLOAD_CONCURRENCY, MAX_IMAGES, URLLIB_TIMEOUT, logger
+from .config import DOWNLOAD_CONCURRENCY, URLLIB_TIMEOUT, logger
 from .image import _detect_mime_type, _is_likely_image_url, _validate_image
 from .searcher import search_images
 from .state import state
@@ -53,8 +53,8 @@ async def _download_one(url: str, sem: asyncio.Semaphore) -> tuple | None:
         return (url, mime_type, image_bytes, width, height)
 
 
-async def run_agent(query: str) -> None:
-    state.reset(query)
+async def run_agent(query: str, max_images: int = 50) -> None:
+    state.reset(query, max_images)
     os.makedirs(state.output_dir, exist_ok=True)
 
     # 1. Search multiple variants for broader coverage
@@ -98,7 +98,7 @@ async def run_agent(query: str) -> None:
         return
 
     # 4. Verify in batches via GPT-4o mini
-    batch_size = 50
+    batch_size = 25
     for i in range(0, len(candidates), batch_size):
         if state.is_full:
             break

@@ -18,12 +18,18 @@ class TestCollectionState:
         assert self.state.session_start > 0
 
     def test_is_full(self):
+        self.state.reset("test", max_images=30)
         self.state.saved_count = 29
         assert not self.state.is_full
         self.state.saved_count = 30
         assert self.state.is_full
         self.state.saved_count = 31
         assert self.state.is_full
+
+    def test_is_full_unlimited(self):
+        self.state.reset("test", max_images=0)
+        self.state.saved_count = 999
+        assert not self.state.is_full
 
     def test_elapsed(self):
         assert self.state.elapsed >= 0
@@ -33,7 +39,7 @@ class TestCollectionState:
 
     def test_log_metrics_empty(self):
         result = self.state.log_metrics()
-        assert "saved=0/30" in result
+        assert "saved=0/50" in result
         assert "downloads=0" in result
         assert "filters=" not in result  # no filter stats when empty
 
@@ -45,7 +51,7 @@ class TestCollectionState:
         self.state.filter_stats["not_relevant"] = 2
 
         result = self.state.log_metrics()
-        assert "saved=5/30" in result
+        assert "saved=5/50" in result
         assert "downloads=10" in result
         assert "gpt_calls=1" in result
         assert "filters={'too_small': 3, 'not_relevant': 2}" in result

@@ -3,7 +3,6 @@ import time
 from collections import Counter
 from dataclasses import dataclass, field
 
-from .config import MAX_IMAGES
 from .image import _sanitize_folder_name
 
 
@@ -13,6 +12,7 @@ class CollectionState:
     query_folder: str = ""
     output_dir: str = ""
     saved_count: int = 0
+    max_images: int = 50
     downloaded_urls: set[str] = field(default_factory=set)
     filter_stats: Counter = field(default_factory=Counter)
 
@@ -21,11 +21,12 @@ class CollectionState:
     gpt_calls: int = 0
     download_attempts: int = 0
 
-    def reset(self, query: str) -> None:
+    def reset(self, query: str, max_images: int = 50) -> None:
         self.query_name = query
         self.query_folder = _sanitize_folder_name(query)
         self.output_dir = os.path.join(".", "references", self.query_folder)
         self.saved_count = 0
+        self.max_images = max_images
         self.downloaded_urls.clear()
         self.filter_stats.clear()
         self.session_start = time.time()
@@ -34,7 +35,7 @@ class CollectionState:
 
     @property
     def is_full(self) -> bool:
-        return self.saved_count >= MAX_IMAGES
+        return self.max_images > 0 and self.saved_count >= self.max_images
 
     @property
     def elapsed(self) -> float:
@@ -43,7 +44,7 @@ class CollectionState:
     def log_metrics(self) -> str:
         """Return a one-line metrics summary for logging."""
         parts = [
-            f"saved={self.saved_count}/{MAX_IMAGES}",
+            f"saved={self.saved_count}/{self.max_images if self.max_images > 0 else '∞'}",
             f"downloads={self.download_attempts}",
             f"gpt_calls={self.gpt_calls}",
             f"elapsed={self.elapsed:.0f}s",

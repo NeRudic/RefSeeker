@@ -38,6 +38,7 @@ def main():
     )
 
     proc.stdin.write("A-20G\n")
+    proc.stdin.write("100\n")
     proc.stdin.flush()
     proc.stdin.close()
 

@@ -15,7 +15,8 @@
       "Bash(.venv/Scripts/python -m pytest tests/ -v --tb=short)",
       "WebSearch",
       "WebFetch(domain:openai.com)",
-      "WebFetch(domain:platform.openai.com)"
+      "WebFetch(domain:platform.openai.com)",
+      "Bash(.venv/Scripts/python -c \"from refseeker.agent import run_agent; from refseeker.state import state; from refseeker.searcher import search_images; print\\('All imports OK'\\)\")"
     ]
   }
 }

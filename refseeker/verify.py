@@ -15,7 +15,6 @@ from .config import (
     GPT_MAX_TOKENS_PER_IMAGE,
     GPT_MODEL,
     GPT_TIMEOUT,
-    MAX_IMAGES,
     logger,
 )
 from .image import (
@@ -120,6 +119,8 @@ async def _verify_and_save(candidates: list[tuple]) -> list[str]:
         log_lines.append("  GPT returned empty response")
         return log_lines
 
+    print("GPT RAW:", raw_content[:500], flush=True)
+
     try:
         parsed = json.loads(raw_content)
     except json.JSONDecodeError as e:
@@ -178,10 +179,10 @@ async def _verify_and_save(candidates: list[tuple]) -> list[str]:
                 with open(file_path, "wb") as f:
                     f.write(image_bytes)
                 log_lines.append(
-                    f"  {url}: SAVED ({state.saved_count}/{MAX_IMAGES}) "
+                    f"  {url}: SAVED ({state.saved_count}/{state.max_images}) "
                     f"[{category}] — {reason}"
                 )
-                logger.info("Saved image %d/%d -> %s", state.saved_count, MAX_IMAGES, file_path)
+                logger.info("Saved image %d/%d -> %s", state.saved_count, state.max_images, file_path)
             except OSError as e:
                 logger.error("Failed to save image %d: %s", state.saved_count + 1, e)
                 log_lines.append(f"  {url}: FAILED TO SAVE — {e}")
