@@ -40,7 +40,7 @@ def _get_model():
 def _get_mistral_client():
     global _mistral_client
     if _mistral_client is None and MISTRAL_API_KEY:
-        from mistralai import Mistral
+        from mistralai.client import Mistral
         _mistral_client = Mistral(api_key=MISTRAL_API_KEY)
     return _mistral_client
 
