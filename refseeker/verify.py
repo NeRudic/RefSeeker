@@ -408,25 +408,7 @@ async def _verify_parallel(candidates, progress_tracker=None):
                 break
             batch = list(fallback_queue)
             fallback_queue.clear()
-            prompt, pil_images, max_tokens = _build_verification_prompt(batch)
-
-            if cfg["adapter"] == "gemini":
-                parsed = await _call_gemini(prompt, pil_images, max_tokens)
-            else:
-                parsed = await _call_mistral(prompt, pil_images, max_tokens, cfg["name"])
-
-            if parsed:
-                evaluations = parsed.get("evaluations", parsed if isinstance(parsed, list) else [])
-                if evaluations:
-                    await _process_evaluations(evaluations, batch, progress_tracker, lock)
-                    continue
-
-            # This provider also failed — put items back for next in line
-            fallback_queue.extend(batch)
-            logger.warning("Fallback provider %s also failed, %d images remaining", cfg["name"], len(fallback_queue))
-
-        if fallback_queue:
-            logger.warning("All providers exhausted, %d images could not be verified", len(fallback_queue))
+            await _verify_task(batch, cfg, progress_tracker, lock, fallback_queue)
 
 
 # ── Public API (backward-compatible signature) ─────────────────────
