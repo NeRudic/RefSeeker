@@ -6,3 +6,4 @@ references/
 *.bak
 refseeker.log
 last-session.txt
+logs/

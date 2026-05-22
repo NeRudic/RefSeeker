@@ -37,7 +37,7 @@ def main():
         stdin=subprocess.PIPE,
     )
 
-    proc.stdin.write("A-20G\n")
+    proc.stdin.write("Tu-160\n")
     proc.stdin.write("100\n")
     proc.stdin.flush()
     proc.stdin.close()

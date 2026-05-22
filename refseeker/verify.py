@@ -122,8 +122,6 @@ async def _verify_and_save(candidates: list[tuple]) -> list[str]:
                 log_lines.append(f"  Gemini API call failed: {e}")
                 return log_lines
 
-    print("Gemini RAW:", raw_content[:500], flush=True)
-
     if not raw_content or not raw_content.strip():
         log_lines.append("  Gemini returned empty response")
         return log_lines
@@ -186,7 +184,7 @@ async def _verify_and_save(candidates: list[tuple]) -> list[str]:
                 log_lines.append(
                     f"  {url}: SAVED ({state.saved_count}/{state.max_images}) — {reason}"
                 )
-                logger.info("Saved image %d/%d -> %s", state.saved_count, state.max_images, file_path)
+                logger.debug("Saved image %d/%d -> %s", state.saved_count, state.max_images, file_path)
             except OSError as e:
                 logger.error("Failed to save image %d: %s", state.saved_count + 1, e)
                 log_lines.append(f"  {url}: FAILED TO SAVE — {e}")
