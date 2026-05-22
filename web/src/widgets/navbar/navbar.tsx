@@ -1,11 +1,10 @@
 import { Link, useLocation } from "react-router-dom";
 import { cn } from "@/shared/lib/cn";
-import { Search, Image, Settings, Hexagon } from "lucide-react";
+import { Search, Image, Hexagon } from "lucide-react";
 
 const links = [
   { to: "/", label: "Search", icon: Search },
   { to: "/gallery", label: "Gallery", icon: Image },
-  { to: "/settings", label: "Settings", icon: Settings },
 ];
 
 export function Navbar() {
