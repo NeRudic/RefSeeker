@@ -4,7 +4,13 @@ import os
 import httpx
 
 from .config import BATCH_SIZE, DOWNLOAD_CONCURRENCY, URLLIB_TIMEOUT, logger
-from .image import _detect_mime_type, _has_null_byte, _is_likely_image_url, _validate_image
+from .image import (
+    _detect_mime_type,
+    _has_null_byte,
+    _is_likely_image_url,
+    _resolve_full_resolution_url,
+    _validate_image,
+)
 from .searcher import search_images
 from .state import state
 from .verify import _verify_and_save
@@ -24,17 +30,28 @@ async def _download_one(url: str, sem: asyncio.Semaphore) -> tuple | None:
         if state.is_full or url in state.downloaded_urls:
             return None
         state.download_attempts += 1
-        logger.debug("Downloading: %s", url)
-        try:
-            async with httpx.AsyncClient(
-                timeout=httpx.Timeout(URLLIB_TIMEOUT, connect=5.0)
-            ) as client:
-                resp = await client.get(url, headers=_DOWNLOAD_HEADERS, follow_redirects=True)
-                resp.raise_for_status()
-                image_bytes = resp.content
-                content_type = resp.headers.get("Content-Type", "")
-        except Exception as e:
-            logger.debug("Download failed: %s — %s", url, e)
+
+        resolved = _resolve_full_resolution_url(url)
+        download_urls = [resolved, url] if resolved else [url]
+
+        image_bytes = None
+        content_type = ""
+        for attempt_url in download_urls:
+            logger.debug("Downloading: %s", attempt_url)
+            try:
+                async with httpx.AsyncClient(
+                    timeout=httpx.Timeout(URLLIB_TIMEOUT, connect=5.0)
+                ) as client:
+                    resp = await client.get(attempt_url, headers=_DOWNLOAD_HEADERS, follow_redirects=True)
+                    resp.raise_for_status()
+                    image_bytes = resp.content
+                    content_type = resp.headers.get("Content-Type", "")
+                break
+            except Exception as e:
+                logger.debug("Download failed: %s — %s", attempt_url, e)
+                continue
+
+        if image_bytes is None:
             return None
 
         if content_type and not content_type.startswith("image/"):

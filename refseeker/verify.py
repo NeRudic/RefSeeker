@@ -18,6 +18,7 @@ from .config import (
 from .image import (
     _check_disk_space,
     _mime_to_ext,
+    _resize_for_api,
 )
 from .state import state
 
@@ -74,7 +75,8 @@ async def _verify_and_save(candidates: list[tuple]) -> list[str]:
 
     pil_images = []
     for _, _, image_bytes, _, _ in candidates:
-        pil_images.append(PIL.Image.open(io.BytesIO(image_bytes)))
+        resized_bytes, _ = _resize_for_api(image_bytes)
+        pil_images.append(PIL.Image.open(io.BytesIO(resized_bytes)))
 
     max_tokens = min(
         8192,
