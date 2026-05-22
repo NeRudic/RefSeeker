@@ -51,7 +51,9 @@ def update_image_blacklist(items: list[str]) -> None:
 PROVIDER_CONFIG = [
     {"name": "gemini-2.5-flash", "adapter": "gemini", "max_tokens_base": 500, "max_tokens_per_image": 150},
     {"name": "mistral-large-2512", "adapter": "mistral", "max_tokens_base": 500, "max_tokens_per_image": 150},
+    {"name": "pixtral-large-2411", "adapter": "mistral", "max_tokens_base": 500, "max_tokens_per_image": 150},
     {"name": "ministral-14b-2512", "adapter": "mistral", "max_tokens_base": 500, "max_tokens_per_image": 150},
+    {"name": "ministral-8b-2512", "adapter": "mistral", "max_tokens_base": 500, "max_tokens_per_image": 150},
 ]
 
 # ── HTTP ─────────────────────────────────────────────────────────────
