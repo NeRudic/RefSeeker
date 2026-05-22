@@ -31,7 +31,7 @@ cd "D:/Рабочий стол/Antigravity/RefSeeker"
 | `refseeker/state.py` | Состояние сессии (CollectionState dataclass) |
 | `refseeker/config.py` | Константы, logger, загрузка image_blacklist из config.json |
 | `refseeker/image.py` | MIME-детекция, фильтрация URL, full-res resolution, resize для API |
-| `config.json` | whitelist + blacklist сайтов, image_blacklist контента |
+| `config.json` | image_blacklist нежелательного контента |
 | `debug_run.py` | Запуск main.py с жёстко заданным запросом "Tu-160", лог в `logs/last-run.log` |
 
 ## Пайплайн
