@@ -1,4 +1,3 @@
-import base64
 import os
 import re
 import shutil
@@ -141,13 +140,6 @@ def _resize_for_api(image_bytes: bytes) -> tuple[bytes, str]:
     buf = BytesIO()
     img.save(buf, format='JPEG', quality=JPEG_QUALITY)
     return buf.getvalue(), 'image/jpeg'
-
-
-def _parse_data_url(data_url: str) -> tuple[str, bytes]:
-    match = re.match(r'^data:([^;]+);base64,(.+)$', data_url)
-    if not match:
-        raise ValueError("Invalid data URL format")
-    return match.group(1), base64.b64decode(match.group(2))
 
 
 def _has_null_byte(url: str) -> bool:

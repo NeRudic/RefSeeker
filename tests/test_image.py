@@ -7,7 +7,6 @@ from refseeker.image import (
     _has_null_byte,
     _is_likely_image_url,
     _mime_to_ext,
-    _parse_data_url,
     _resolve_full_resolution_url,
     _validate_image,
 )

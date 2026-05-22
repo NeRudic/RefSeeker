@@ -1,22 +1,6 @@
-"""Tests for image.py — data URL parsing and image validation."""
+"""Tests for image.py — image validation."""
 
-from refseeker.image import _parse_data_url, _validate_image
-
-
-class TestParseDataUrl:
-    def test_valid_data_url(self):
-        import base64
-        raw = b"fakeimagebytes"
-        b64 = base64.b64encode(raw).decode()
-        url = f"data:image/png;base64,{b64}"
-        mime, data = _parse_data_url(url)
-        assert mime == "image/png"
-        assert data == raw
-
-    def test_invalid_data_url(self):
-        import pytest
-        with pytest.raises(ValueError, match="Invalid data URL format"):
-            _parse_data_url("not-a-data-url")
+from refseeker.image import _validate_image
 
 
 class TestValidateImage:
