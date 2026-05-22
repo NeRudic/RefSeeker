@@ -4,7 +4,7 @@ import os
 import httpx
 
 from .config import BATCH_SIZE, DOWNLOAD_CONCURRENCY, URLLIB_TIMEOUT, logger
-from .image import _detect_mime_type, _validate_image
+from .image import _detect_mime_type, _has_null_byte, _is_likely_image_url, _validate_image
 from .searcher import search_images
 from .state import state
 from .verify import _verify_and_save
@@ -78,6 +78,21 @@ async def run_agent(query: str, max_images: int = 50) -> None:
             unique_urls.append(url)
 
     logger.info("Total unique image URLs: %d", len(unique_urls))
+
+    # 2b. Pre-filter: reject invalid URLs before downloading
+    pre_filtered: list[str] = []
+    for url in unique_urls:
+        if _has_null_byte(url):
+            logger.debug("Rejected (null byte): %s", url)
+            state.filter_stats["invalid_url"] += 1
+            continue
+        if not _is_likely_image_url(url):
+            logger.debug("Rejected (not an image URL): %s", url)
+            state.filter_stats["invalid_url"] += 1
+            continue
+        pre_filtered.append(url)
+    unique_urls = pre_filtered
+    logger.info("After pre-filter: %d image URLs", len(unique_urls))
 
     if not unique_urls:
         logger.warning("No image URLs found for query: %s", query)
