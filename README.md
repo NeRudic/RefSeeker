@@ -150,7 +150,7 @@ RefSeeker/
 ## Зависимости
 
 - `httpx` — HTTP-клиент для API-вызовов и скачивания изображений
-- `google-generativeai` — Gemini 2.5 Flash для vision-верификации
+- `google-genai` — Gemini 2.5 Flash для vision-верификации
 - `python-dotenv` — загрузка переменных окружения
 - `Pillow` — проверка и обработка изображений
 

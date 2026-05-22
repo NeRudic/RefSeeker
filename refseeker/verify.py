@@ -8,7 +8,7 @@ import os
 import shutil
 
 import PIL.Image
-import google.generativeai as genai
+from google import genai
 
 from .config import (
     GPT_MAX_TOKENS_BASE,
@@ -25,16 +25,15 @@ from .image import (
 )
 from .state import state
 
-genai.configure(api_key=GEMINI_API_KEY)
-_model = None
+_gemini_client = None
 _mistral_client = None
 
 
-def _get_model():
-    global _model
-    if _model is None:
-        _model = genai.GenerativeModel("gemini-2.5-flash")
-    return _model
+def _get_gemini_client():
+    global _gemini_client
+    if _gemini_client is None:
+        _gemini_client = genai.Client(api_key=GEMINI_API_KEY)
+    return _gemini_client
 
 
 def _get_mistral_client():
@@ -93,16 +92,17 @@ def _build_verification_prompt(candidates):
 # ── Model adapters ─────────────────────────────────────────────────
 
 async def _call_gemini(prompt, pil_images, max_tokens):
-    """Call Gemini 2.5 Flash. Returns parsed dict or None on failure."""
-    model = _get_model()
+    """Call Gemini 2.5 Flash via google.genai. Returns parsed dict or None on failure."""
+    client = _get_gemini_client()
     state.gpt_calls += 1
     max_retries = 3
 
     for attempt in range(max_retries):
         try:
-            response = model.generate_content(
-                [prompt] + pil_images,
-                generation_config=genai.GenerationConfig(
+            response = client.models.generate_content(
+                model="gemini-2.5-flash",
+                contents=[prompt] + pil_images,
+                config=genai.types.GenerateContentConfig(
                     response_mime_type="application/json",
                     max_output_tokens=max_tokens,
                 ),
