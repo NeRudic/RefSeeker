@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import {
   PipelineTimeline,
@@ -13,7 +13,7 @@ import {
   type PipelineEvent,
 } from "@/shared/api/client";
 import { Badge } from "@/shared/ui/badge";
-import { ArrowLeft, Loader2, AlertCircle, AlertTriangle } from "lucide-react";
+import { ArrowLeft, Loader2, AlertCircle, AlertTriangle, Timer } from "lucide-react";
 
 interface TrackedImage {
   /** Original remote URL used as unique identifier */
@@ -47,6 +47,34 @@ export function SearchPage() {
   const [error, setError] = useState("");
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [elapsed, setElapsed] = useState(0);
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const startTimeRef = useRef<number | null>(null);
+
+  const startTimer = useCallback(() => {
+    if (timerRef.current) return;
+    startTimeRef.current = Date.now();
+    timerRef.current = setInterval(() => {
+      setElapsed(Math.floor((Date.now() - startTimeRef.current!) / 1000));
+    }, 1000);
+  }, []);
+
+  const stopTimer = useCallback(() => {
+    if (timerRef.current) {
+      clearInterval(timerRef.current);
+      timerRef.current = null;
+    }
+    if (startTimeRef.current) {
+      setElapsed(Math.floor((Date.now() - startTimeRef.current) / 1000));
+    }
+  }, []);
+
+  // Cleanup timer on unmount
+  useEffect(() => {
+    return () => {
+      if (timerRef.current) clearInterval(timerRef.current);
+    };
+  }, []);
 
   // Fetch initial session state
   useEffect(() => {
@@ -88,6 +116,7 @@ export function SearchPage() {
       case "search.started":
         setPipeline((p) => ({ ...p, search: "active" }));
         setSessionState((s) => ({ ...s, query: data.query as string }));
+        startTimer();
         setLogEvents((prev) => [
           ...prev,
           { type: "info", message: `Searching for "${data.query}"...`, timestamp: Date.now() },
@@ -180,6 +209,7 @@ export function SearchPage() {
       case "session.complete":
         setPipeline((p) => ({ ...p, verify: "done" }));
         setFinished(true);
+        stopTimer();
         setLogEvents((prev) => [
           ...prev,
           { type: "info", message: `Session complete — ${(data.metrics as Record<string, unknown>)?.saved ?? 0} images saved`, timestamp: Date.now() },
@@ -189,6 +219,7 @@ export function SearchPage() {
       case "session.error":
         setError(data.message as string);
         setFinished(true);
+        stopTimer();
         break;
     }
   }, []);
@@ -223,6 +254,16 @@ export function SearchPage() {
             <Badge variant="success">
               {sessionState.saved} {sessionState.saved === 1 ? "image" : "images"} saved
             </Badge>
+          )}
+          {elapsed > 0 && (
+            <div className="flex items-center gap-1.5 text-xs text-neutral-400 ml-1">
+              <Timer className="h-3.5 w-3.5" />
+              <span className="font-mono tabular-nums">
+                {elapsed >= 3600
+                  ? `${Math.floor(elapsed / 3600)}:${String(Math.floor((elapsed % 3600) / 60)).padStart(2, "0")}:${String(elapsed % 60).padStart(2, "0")}`
+                  : `${Math.floor(elapsed / 60)}:${String(elapsed % 60).padStart(2, "0")}`}
+              </span>
+            </div>
           )}
           {sessionState.blacklist && sessionState.blacklist.length > 0 && (
             <div className="flex items-center gap-1 text-xs text-amber-400/80 ml-1">
