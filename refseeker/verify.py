@@ -144,6 +144,8 @@ async def _call_mistral(prompt, pil_images, max_tokens, model_id):
     content = [{"type": "text", "text": prompt}]
     for img in pil_images:
         buf = io.BytesIO()
+        if img.mode != 'RGB':
+            img = img.convert('RGB')
         img.save(buf, format="JPEG", quality=85)
         b64 = base64.b64encode(buf.getvalue()).decode()
         content.append({
@@ -282,17 +284,47 @@ async def _process_evaluations(evaluations, candidates, progress_tracker, lock):
 
 # ── Per-provider verification task ─────────────────────────────────
 
+MISTRAL_MAX_IMAGES = 8
+
+
 async def _verify_task(candidates, provider_cfg, progress_tracker, lock, fallback_queue):
     """Process a group of candidates through a single provider."""
     if not candidates or state.is_full:
+        return
+
+    if provider_cfg["adapter"] == "mistral":
+        # Mistral API accepts max 8 images per call — split into chunks
+        for chunk_start in range(0, len(candidates), MISTRAL_MAX_IMAGES):
+            if state.is_full:
+                return
+            chunk = candidates[chunk_start:chunk_start + MISTRAL_MAX_IMAGES]
+            prompt, pil_images, max_tokens = _build_verification_prompt(chunk)
+            parsed = await _call_mistral(prompt, pil_images, max_tokens, provider_cfg["name"])
+
+            if parsed is None:
+                logger.warning(
+                    "Provider %s returned no result — queuing %d images for fallback",
+                    provider_cfg["name"], len(chunk),
+                )
+                fallback_queue.extend(candidates[chunk_start:])
+                return
+
+            evaluations = parsed.get("evaluations", parsed if isinstance(parsed, list) else [])
+            if not evaluations:
+                logger.warning(
+                    "Provider %s returned empty evaluations — queuing %d images for fallback",
+                    provider_cfg["name"], len(chunk),
+                )
+                fallback_queue.extend(candidates[chunk_start:])
+                return
+
+            await _process_evaluations(evaluations, chunk, progress_tracker, lock)
         return
 
     prompt, pil_images, max_tokens = _build_verification_prompt(candidates)
 
     if provider_cfg["adapter"] == "gemini":
         parsed = await _call_gemini(prompt, pil_images, max_tokens)
-    elif provider_cfg["adapter"] == "mistral":
-        parsed = await _call_mistral(prompt, pil_images, max_tokens, provider_cfg["name"])
     else:
         logger.warning("Unknown adapter %s — queuing %d images for fallback", provider_cfg["adapter"], len(candidates))
         fallback_queue.extend(candidates)
