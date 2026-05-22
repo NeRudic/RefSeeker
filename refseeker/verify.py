@@ -118,7 +118,7 @@ async def _call_gemini(prompt, pil_images, max_tokens):
             err_str = str(e).lower()
             should_retry = (
                 "rate_limit" in err_str or "429" in err_str
-                or "500" in err_str or "502" in err_str
+                or "500" in err_str or "502" in err_str or "503" in err_str
                 or "timeout" in err_str or "quota" in err_str
             )
             if attempt < max_retries - 1 and should_retry:
@@ -176,8 +176,8 @@ async def _call_mistral(prompt, pil_images, max_tokens, model_id):
             err_str = str(e).lower()
             should_retry = (
                 "rate_limit" in err_str or "429" in err_str
-                or "500" in err_str or "timeout" in err_str
-                or "quota" in err_str
+                or "500" in err_str or "502" in err_str or "503" in err_str
+                or "timeout" in err_str or "quota" in err_str
             )
             if attempt < max_retries - 1 and should_retry:
                 wait = 2 ** (attempt + 2)
@@ -322,6 +322,10 @@ async def _verify_task(candidates, provider_cfg, progress_tracker, lock, fallbac
                 return
 
             await _process_evaluations(evaluations, chunk, progress_tracker, lock)
+            logger.info(
+                "Provider %s chunk %d evaluated: %d images",
+                provider_cfg["name"], chunk_start // MISTRAL_MAX_IMAGES + 1, len(chunk),
+            )
         return
 
     prompt, pil_images, max_tokens = _build_verification_prompt(candidates)
