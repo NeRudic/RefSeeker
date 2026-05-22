@@ -4,7 +4,7 @@ import os
 
 import httpx
 
-from .config import BATCH_SIZE, DOWNLOAD_CONCURRENCY, URLLIB_TIMEOUT, logger
+from .config import DOWNLOAD_CONCURRENCY, URLLIB_TIMEOUT, logger
 from .image import (
     _detect_mime_type,
     _has_null_byte,
@@ -175,27 +175,8 @@ async def run_agent(query: str, max_images: int = 50, progress_tracker=None, bla
         logger.info("Session finished. %s", state.log_metrics())
         return
 
-    # 4. Verify in batches via Gemini 2.5 Flash
-    batch_size = BATCH_SIZE
-    total_batches = (len(candidates) + batch_size - 1) // batch_size
-    for i in range(0, len(candidates), batch_size):
-        if state.is_full:
-            break
-        batch = candidates[i : i + batch_size]
-        batch_num = i // batch_size + 1
-        logger.info(
-            "Verifying batch %d/%d (%d images)...",
-            batch_num,
-            total_batches,
-            len(batch),
-        )
-        if progress_tracker:
-            progress_tracker.verification_batch_started(batch_num, total_batches, len(batch))
-        await _verify_and_save(batch, progress_tracker=progress_tracker)
-        if progress_tracker:
-            progress_tracker.verification_batch_complete(batch_num, total_batches)
-
-        if state.saved_count % 10 == 0 and state.saved_count > 0:
-            logger.info("Progress: %s", state.log_metrics())
+    # 4. Verify in parallel across providers
+    logger.info("Verifying %d images across providers ...", len(candidates))
+    await _verify_and_save(candidates, progress_tracker=progress_tracker)
 
     logger.info("Session finished. %s", state.log_metrics())

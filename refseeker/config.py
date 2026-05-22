@@ -14,6 +14,7 @@ MIN_IMAGE_DIM = 300
 GPT_MAX_TOKENS_BASE = 500
 GPT_MAX_TOKENS_PER_IMAGE = 150
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+MISTRAL_API_KEY = os.getenv("MISTRAL_API_KEY")
 
 # ── Config file ─────────────────────────────────────────────────────────────
 _CONFIG_PATH = os.path.join(os.path.dirname(__file__), "..", "config.json")
@@ -46,7 +47,14 @@ def update_image_blacklist(items: list[str]) -> None:
     IMAGE_BLACKLIST.clear()
     IMAGE_BLACKLIST.extend(items)
 
-# ── HTTP ─────────────────────────────────────────────────────────────────────
+# ── Provider queue (parallel rotation) ────────────────────────────────
+PROVIDER_CONFIG = [
+    {"name": "gemini-2.5-flash", "adapter": "gemini", "max_tokens_base": 500, "max_tokens_per_image": 150},
+    {"name": "mistral-large-2512", "adapter": "mistral", "max_tokens_base": 500, "max_tokens_per_image": 150},
+    {"name": "ministral-14b-2512", "adapter": "mistral", "max_tokens_base": 500, "max_tokens_per_image": 150},
+]
+
+# ── HTTP ─────────────────────────────────────────────────────────────
 DOWNLOAD_CONCURRENCY = 5
 URLLIB_TIMEOUT = 10
 JPEG_QUALITY = 85
