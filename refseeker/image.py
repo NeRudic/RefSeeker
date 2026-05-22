@@ -9,16 +9,6 @@ from PIL import Image
 from .config import JPEG_QUALITY, RESIZE_DIM, logger
 
 
-def _sanitize_folder_name(name: str) -> str:
-    name = name.strip().lower()
-    clean = re.sub(r'[\\/*?:"<>| .]', '_', name)
-    clean = re.sub(r'_+', '_', clean)
-    clean = clean.strip('_')
-    if not clean or clean in ('', '.', '..', '__'):
-        return 'other'
-    return clean[:40]
-
-
 def _detect_mime_type(image_bytes: bytes) -> str:
     if image_bytes.startswith(b'\xff\xd8\xff'):
         return 'image/jpeg'

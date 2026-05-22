@@ -1,9 +1,18 @@
 import os
+import re
 import time
 from collections import Counter
 from dataclasses import dataclass, field
 
-from .image import _sanitize_folder_name
+
+def _sanitize_folder_name(name: str) -> str:
+    name = name.strip().lower()
+    clean = re.sub(r'[\\/*?:"<>| .]', '_', name)
+    clean = re.sub(r'_+', '_', clean)
+    clean = clean.strip('_')
+    if not clean or clean in ('', '.', '..', '__'):
+        return 'other'
+    return clean[:40]
 
 
 @dataclass
