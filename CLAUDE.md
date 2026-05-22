@@ -6,6 +6,8 @@
 
 2. **Always commit after changes** — after completing any task that modifies files, create a commit with a clear message describing what was changed and why.
 
+3. **No co-authorship or attribution trailers in commits** — never add lines like `Co-Authored-By`, `Signed-off-by`, or any other automated attribution trailer to commit messages. Commit messages must only contain the human-written description of changes.
+
 ## Project context
 
 - Python 3.10+ project for automated reference image collection
