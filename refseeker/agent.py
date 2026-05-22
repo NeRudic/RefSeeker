@@ -3,7 +3,7 @@ import os
 
 import httpx
 
-from .config import DOWNLOAD_CONCURRENCY, URLLIB_TIMEOUT, logger
+from .config import BATCH_SIZE, DOWNLOAD_CONCURRENCY, URLLIB_TIMEOUT, logger
 from .image import _detect_mime_type, _validate_image
 from .searcher import search_images
 from .state import state
@@ -24,7 +24,7 @@ async def _download_one(url: str, sem: asyncio.Semaphore) -> tuple | None:
         if state.is_full or url in state.downloaded_urls:
             return None
         state.download_attempts += 1
-        logger.info("Downloading: %s", url)
+        logger.debug("Downloading: %s", url)
         try:
             async with httpx.AsyncClient(
                 timeout=httpx.Timeout(URLLIB_TIMEOUT, connect=5.0)
@@ -97,8 +97,8 @@ async def run_agent(query: str, max_images: int = 50) -> None:
         logger.info("Session finished. %s", state.log_metrics())
         return
 
-    # 4. Verify in batches via GPT-4o mini
-    batch_size = 25
+    # 4. Verify in batches via Gemini 2.5 Flash
+    batch_size = BATCH_SIZE
     for i in range(0, len(candidates), batch_size):
         if state.is_full:
             break
