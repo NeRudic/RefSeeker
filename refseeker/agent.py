@@ -24,7 +24,7 @@ _DOWNLOAD_HEADERS = {
 }
 
 
-async def _download_one(url: str, sem: asyncio.Semaphore) -> tuple | None:
+async def _download_one(url: str, sem: asyncio.Semaphore, progress_tracker=None) -> tuple | None:
     """Download a single image via HTTP, validate, return candidate tuple or None."""
     async with sem:
         if state.is_full or url in state.downloaded_urls:
@@ -52,6 +52,11 @@ async def _download_one(url: str, sem: asyncio.Semaphore) -> tuple | None:
                 continue
 
         if image_bytes is None:
+            if progress_tracker:
+                progress_tracker.download_progress(
+                    current=state.download_attempts, total=len(state.downloaded_urls) + 1,
+                    url=url, status="failed",
+                )
             return None
 
         if content_type and not content_type.startswith("image/"):
@@ -70,9 +75,12 @@ async def _download_one(url: str, sem: asyncio.Semaphore) -> tuple | None:
         return (url, mime_type, image_bytes, width, height)
 
 
-async def run_agent(query: str, max_images: int = 50) -> None:
+async def run_agent(query: str, max_images: int = 50, progress_tracker=None) -> None:
     state.reset(query, max_images)
     os.makedirs(state.output_dir, exist_ok=True)
+
+    if progress_tracker:
+        progress_tracker.search_started(query=query, max_images=max_images)
 
     # 1. Search multiple variants for broader coverage
     search_queries = [
@@ -111,6 +119,9 @@ async def run_agent(query: str, max_images: int = 50) -> None:
     unique_urls = pre_filtered
     logger.info("After pre-filter: %d image URLs", len(unique_urls))
 
+    if progress_tracker:
+        progress_tracker.search_complete(total=len(all_urls), unique=len(seen), after_filter=len(unique_urls))
+
     if not unique_urls:
         logger.warning("No image URLs found for query: %s", query)
         logger.info("Session finished. %s", state.log_metrics())
@@ -118,11 +129,18 @@ async def run_agent(query: str, max_images: int = 50) -> None:
 
     # 3. Download with concurrency
     sem = asyncio.Semaphore(DOWNLOAD_CONCURRENCY)
-    download_tasks = [_download_one(url, sem) for url in unique_urls]
+    total_to_download = len(unique_urls)
+    if progress_tracker:
+        progress_tracker.download_started(total=total_to_download)
+
+    download_tasks = [_download_one(url, sem, progress_tracker=progress_tracker) for url in unique_urls]
     results = await asyncio.gather(*download_tasks)
 
     candidates = [r for r in results if r is not None]
     logger.info("Downloaded %d valid candidates", len(candidates))
+
+    if progress_tracker:
+        progress_tracker.download_complete(downloaded=len(candidates))
 
     if not candidates:
         logger.warning("No valid images could be downloaded.")
@@ -131,17 +149,23 @@ async def run_agent(query: str, max_images: int = 50) -> None:
 
     # 4. Verify in batches via Gemini 2.5 Flash
     batch_size = BATCH_SIZE
+    total_batches = (len(candidates) + batch_size - 1) // batch_size
     for i in range(0, len(candidates), batch_size):
         if state.is_full:
             break
         batch = candidates[i : i + batch_size]
+        batch_num = i // batch_size + 1
         logger.info(
             "Verifying batch %d/%d (%d images)...",
-            i // batch_size + 1,
-            (len(candidates) + batch_size - 1) // batch_size,
+            batch_num,
+            total_batches,
             len(batch),
         )
-        await _verify_and_save(batch)
+        if progress_tracker:
+            progress_tracker.verification_batch_started(batch_num, total_batches, len(batch))
+        await _verify_and_save(batch, progress_tracker=progress_tracker)
+        if progress_tracker:
+            progress_tracker.verification_batch_complete(batch_num, total_batches)
 
         if state.saved_count % 10 == 0 and state.saved_count > 0:
             logger.info("Progress: %s", state.log_metrics())

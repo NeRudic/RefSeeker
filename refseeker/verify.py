@@ -33,7 +33,7 @@ def _get_model():
     return _model
 
 
-async def _verify_and_save(candidates: list[tuple]) -> list[str]:
+async def _verify_and_save(candidates: list[tuple], progress_tracker=None) -> list[str]:
     """Send candidates to Gemini 2.5 Flash, save approved images, return log lines."""
     log_lines: list[str] = []
 
@@ -163,20 +163,30 @@ async def _verify_and_save(candidates: list[tuple]) -> list[str]:
         if not relevant:
             state.filter_stats["not_relevant"] += 1
             log_lines.append(f"  {url}: not relevant — {reason}")
+            if progress_tracker:
+                progress_tracker.image_rejected(url, reason, filter_type="not_relevant")
         elif not high_quality:
             state.filter_stats["low_quality"] += 1
             log_lines.append(f"  {url}: low quality — {reason}")
+            if progress_tracker:
+                progress_tracker.image_rejected(url, reason, filter_type="low_quality")
         elif watermarked:
             state.filter_stats["watermarked"] += 1
             log_lines.append(f"  {url}: watermarked — {reason}")
+            if progress_tracker:
+                progress_tracker.image_rejected(url, reason, filter_type="watermarked")
         elif eval_item.get("unwanted_content", False):
             state.filter_stats["unwanted_content"] += 1
             log_lines.append(f"  {url}: unwanted content — {reason}")
+            if progress_tracker:
+                progress_tracker.image_rejected(url, reason, filter_type="unwanted_content")
         else:
             if not _check_disk_space(state.output_dir):
                 log_lines.append(f"  {url}: SKIPPED — low disk space")
                 break
             state.saved_count += 1
+            if progress_tracker:
+                progress_tracker.image_approved(url, reason, state.saved_count, state.max_images)
             try:
                 ext = _mime_to_ext(mime_type)
                 file_name = f"image_{state.saved_count}.{ext}"
