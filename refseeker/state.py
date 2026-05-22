@@ -22,6 +22,7 @@ class CollectionState:
     output_dir: str = ""
     saved_count: int = 0
     max_images: int = 50
+    blacklist: list[str] = field(default_factory=list)
     downloaded_urls: set[str] = field(default_factory=set)
     filter_stats: Counter = field(default_factory=Counter)
     pending_files: dict[str, str] = field(default_factory=dict)
@@ -31,12 +32,13 @@ class CollectionState:
     gpt_calls: int = 0
     download_attempts: int = 0
 
-    def reset(self, query: str, max_images: int = 50) -> None:
+    def reset(self, query: str, max_images: int = 50, blacklist: list[str] | None = None) -> None:
         self.query_name = query
         self.query_folder = _sanitize_folder_name(query)
         self.output_dir = os.path.join(".", "references", self.query_folder)
         self.saved_count = 0
         self.max_images = max_images
+        self.blacklist = blacklist or []
         self.downloaded_urls.clear()
         self.filter_stats.clear()
         self.pending_files.clear()

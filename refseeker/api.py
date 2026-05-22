@@ -35,6 +35,7 @@ app.add_middleware(
 class CreateSessionRequest(BaseModel):
     query: str
     max_images: int = 50
+    blacklist: list[str] = []
 
 
 class CreateSessionResponse(BaseModel):
@@ -52,7 +53,7 @@ async def create_session(body: CreateSessionRequest):
 
     logger.info("Session %s started: query=%s max=%d", session_id, body.query, body.max_images)
 
-    asyncio.create_task(_run_pipeline(session_id, tracker, body.query, body.max_images))
+    asyncio.create_task(_run_pipeline(session_id, tracker, body.query, body.max_images, body.blacklist))
 
     return CreateSessionResponse(session_id=session_id)
 
@@ -92,6 +93,7 @@ async def get_session(session_id: str):
         "query_name": state.query_name,
         "saved_count": state.saved_count,
         "max_images": state.max_images,
+        "blacklist": state.blacklist,
         "download_attempts": state.download_attempts,
         "gpt_calls": state.gpt_calls,
         "elapsed": state.elapsed,
@@ -199,11 +201,11 @@ async def set_blacklist(body: UpdateBlacklistRequest):
 
 # ── Background pipeline runner ──────────────────────────────────────────────
 
-async def _run_pipeline(session_id: str, tracker: ProgressTracker, query: str, max_images: int):
+async def _run_pipeline(session_id: str, tracker: ProgressTracker, query: str, max_images: int, blacklist: list[str] | None = None):
     """Run the full pipeline and push progress events."""
     try:
         tracker.search_started(query=query, max_images=max_images)
-        await run_agent(query, max_images, progress_tracker=tracker)
+        await run_agent(query, max_images, progress_tracker=tracker, blacklist=blacklist)
         from .state import state
         tracker.session_complete(metrics={
             "saved": state.saved_count,

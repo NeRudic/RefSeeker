@@ -103,8 +103,8 @@ async def _download_one(url: str, sem: asyncio.Semaphore, progress_tracker=None)
         return (url, mime_type, image_bytes, width, height)
 
 
-async def run_agent(query: str, max_images: int = 50, progress_tracker=None) -> None:
-    state.reset(query, max_images)
+async def run_agent(query: str, max_images: int = 50, progress_tracker=None, blacklist: list[str] | None = None) -> None:
+    state.reset(query, max_images, blacklist)
     os.makedirs(state.output_dir, exist_ok=True)
 
     if progress_tracker:

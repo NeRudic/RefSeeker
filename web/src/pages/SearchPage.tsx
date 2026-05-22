@@ -13,7 +13,7 @@ import {
   type PipelineEvent,
 } from "@/shared/api/client";
 import { Badge } from "@/shared/ui/badge";
-import { ArrowLeft, Loader2, AlertCircle } from "lucide-react";
+import { ArrowLeft, Loader2, AlertCircle, AlertTriangle } from "lucide-react";
 
 type ImageStatus = "pending" | "approved";
 
@@ -45,6 +45,7 @@ export function SearchPage() {
     query?: string;
     saved?: number;
     max?: number;
+    blacklist?: string[];
   }>({});
   const [finished, setFinished] = useState(false);
   const [error, setError] = useState("");
@@ -64,7 +65,7 @@ export function SearchPage() {
 
     getSession(sessionId)
       .then((s) => {
-        setSessionState({ query: s.query_name, saved: s.saved_count, max: s.max_images });
+        setSessionState({ query: s.query_name, saved: s.saved_count, max: s.max_images, blacklist: s.blacklist });
         if (s.finished) {
           setFinished(true);
         }
@@ -255,6 +256,17 @@ export function SearchPage() {
             <Badge variant="info">
               {pendingCount} pending verification
             </Badge>
+          )}
+          {sessionState.blacklist && sessionState.blacklist.length > 0 && (
+            <div className="flex items-center gap-1 text-xs text-amber-400/80 ml-1">
+              <AlertTriangle className="h-3 w-3" />
+              <span className="hidden sm:inline">Blacklist:</span>
+              {sessionState.blacklist.map((item, i) => (
+                <span key={i} className="rounded bg-amber-500/10 border border-amber-500/15 px-1.5 py-0.5 text-[10px]">
+                  {item}
+                </span>
+              ))}
+            </div>
           )}
         </div>
       </div>

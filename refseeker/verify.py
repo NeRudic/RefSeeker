@@ -13,7 +13,6 @@ from .config import (
     GPT_MAX_TOKENS_BASE,
     GPT_MAX_TOKENS_PER_IMAGE,
     GEMINI_API_KEY,
-    IMAGE_BLACKLIST,
     logger,
 )
 from .image import (
@@ -49,8 +48,9 @@ async def _verify_and_save(candidates: list[tuple], progress_tracker=None) -> li
     # Build prompt with optional image content blacklist
     blacklist_section = ""
     blacklist_field = ""
-    if IMAGE_BLACKLIST:
-        items = ", ".join(IMAGE_BLACKLIST)
+    session_blacklist = state.blacklist
+    if session_blacklist:
+        items = ", ".join(session_blacklist)
         blacklist_section = (
             f'4. Does it contain any of the following unwanted content: {items}?\n'
         )

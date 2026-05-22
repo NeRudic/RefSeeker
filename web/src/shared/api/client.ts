@@ -9,6 +9,7 @@ export interface SessionState {
   query_name: string;
   saved_count: number;
   max_images: number;
+  blacklist: string[];
   download_attempts: number;
   gpt_calls: number;
   elapsed: number;
@@ -46,12 +47,13 @@ export interface PipelineEvent {
 
 export async function createSession(
   query: string,
-  maxImages: number
+  maxImages: number,
+  blacklist?: string[]
 ): Promise<SessionResponse> {
   const res = await fetch(`${BASE}/sessions`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ query, max_images: maxImages }),
+    body: JSON.stringify({ query, max_images: maxImages, blacklist: blacklist ?? [] }),
   });
   if (!res.ok) throw new Error("Failed to create session");
   return res.json();
@@ -134,3 +136,7 @@ export async function updateBlacklist(
   if (!res.ok) throw new Error("Failed to update blacklist");
   return res.json();
 }
+
+// ── Settings (global) ───────────────────────────────────────────────────────
+// Blacklist is now per-session via createSession(). Global endpoints are kept
+// for programmatic access but the UI is removed.
