@@ -1,3 +1,4 @@
+import json
 import logging
 import os
 from logging.handlers import RotatingFileHandler
@@ -7,12 +8,27 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # ── Constants ────────────────────────────────────────────────────────────────
-BATCH_SIZE = 25
+BATCH_SIZE = 15
 RESIZE_DIM = 768
 MIN_IMAGE_DIM = 300
 GPT_MAX_TOKENS_BASE = 500
 GPT_MAX_TOKENS_PER_IMAGE = 150
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+
+# ── Config file ─────────────────────────────────────────────────────────────
+_CONFIG_PATH = os.path.join(os.path.dirname(__file__), "..", "config.json")
+
+
+def _load_image_blacklist() -> list[str]:
+    try:
+        with open(_CONFIG_PATH, encoding="utf-8") as f:
+            cfg = json.load(f)
+        return cfg.get("image_blacklist", [])
+    except Exception:
+        return []
+
+
+IMAGE_BLACKLIST: list[str] = _load_image_blacklist()
 
 # ── HTTP ─────────────────────────────────────────────────────────────────────
 DOWNLOAD_CONCURRENCY = 5

@@ -13,5 +13,7 @@
         "reddit.com",
         "twitter.com",
         "x.com"
+    ],
+    "image_blacklist": [
     ]
 }

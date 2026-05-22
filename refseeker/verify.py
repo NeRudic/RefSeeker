@@ -12,6 +12,7 @@ from .config import (
     GPT_MAX_TOKENS_BASE,
     GPT_MAX_TOKENS_PER_IMAGE,
     GEMINI_API_KEY,
+    IMAGE_BLACKLIST,
     logger,
 )
 from .image import (
@@ -43,6 +44,16 @@ async def _verify_and_save(candidates: list[tuple]) -> list[str]:
     )
     model = _get_model()
 
+    # Build prompt with optional image content blacklist
+    blacklist_section = ""
+    blacklist_field = ""
+    if IMAGE_BLACKLIST:
+        items = ", ".join(IMAGE_BLACKLIST)
+        blacklist_section = (
+            f'4. Does it contain any of the following unwanted content: {items}?\n'
+        )
+        blacklist_field = f'"unwanted_content": false, '
+
     prompt = (
         f'You are checking if images are suitable as high-quality reference photos for: '
         f'"{state.query_name}".\n\n'
@@ -50,12 +61,14 @@ async def _verify_and_save(candidates: list[tuple]) -> list[str]:
         f'1. Is it relevant to "{state.query_name}"?\n'
         f'2. Is it high quality (sharp, detailed, not blurry, not pixelated)?\n'
         f'3. Is it watermarked or does it contain prominent text overlays '
-        f'(excluding tiny photographer signatures)?\n\n'
+        f'(excluding tiny photographer signatures)?\n'
+        f'{blacklist_section}'
         f'Respond ONLY with a JSON object containing an "evaluations" array. '
         f'One object per image, in the SAME order. '
         f'Keep each reason under 5 words.\n\n'
         f'{{"evaluations": [{{"index": 0, "relevant": true, "high_quality": true, '
         f'"watermarked": false, '
+        f'{blacklist_field}'
         f'"reason": "clear side view"}}]}}'
     )
 
@@ -156,6 +169,9 @@ async def _verify_and_save(candidates: list[tuple]) -> list[str]:
         elif watermarked:
             state.filter_stats["watermarked"] += 1
             log_lines.append(f"  {url}: watermarked — {reason}")
+        elif eval_item.get("unwanted_content", False):
+            state.filter_stats["unwanted_content"] += 1
+            log_lines.append(f"  {url}: unwanted content — {reason}")
         else:
             if not _check_disk_space(state.output_dir):
                 log_lines.append(f"  {url}: SKIPPED — low disk space")
