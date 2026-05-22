@@ -97,16 +97,19 @@ async def _call_gemini(prompt, pil_images, max_tokens):
     state.gpt_calls += 1
     max_retries = 3
 
+    def _sync_call():
+        return client.models.generate_content(
+            model="gemini-2.5-flash",
+            contents=[prompt] + pil_images,
+            config=genai.types.GenerateContentConfig(
+                response_mime_type="application/json",
+                max_output_tokens=max_tokens,
+            ),
+        )
+
     for attempt in range(max_retries):
         try:
-            response = client.models.generate_content(
-                model="gemini-2.5-flash",
-                contents=[prompt] + pil_images,
-                config=genai.types.GenerateContentConfig(
-                    response_mime_type="application/json",
-                    max_output_tokens=max_tokens,
-                ),
-            )
+            response = await asyncio.to_thread(_sync_call)
             raw = response.text
             if raw and raw.strip():
                 return json.loads(raw)
