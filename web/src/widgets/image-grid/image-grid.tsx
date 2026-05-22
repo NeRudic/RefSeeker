@@ -1,3 +1,4 @@
+import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/shared/lib/cn";
 import { Loader2 } from "lucide-react";
 
@@ -14,6 +15,21 @@ interface ImageGridProps {
   onImageClick?: (index: number) => void;
 }
 
+const cardVariants = {
+  initial: { opacity: 0, y: 32, scale: 0.94 },
+  animate: {
+    opacity: 1,
+    y: 0,
+    scale: 1,
+    transition: { duration: 0.5, ease: [0.25, 0.1, 0.25, 1] as const },
+  },
+  exit: {
+    opacity: 0,
+    scale: 0.94,
+    transition: { duration: 0.3, ease: "easeIn" as const },
+  },
+};
+
 export function ImageGrid({ images, className, onImageClick }: ImageGridProps) {
   if (images.length === 0) return null;
 
@@ -24,54 +40,60 @@ export function ImageGrid({ images, className, onImageClick }: ImageGridProps) {
         className
       )}
     >
-      {images.map((img, i) => {
-        const isPending = img.status === "pending";
-        return (
-          <div
-            key={i}
-            className={cn(
-              "break-inside-avoid mb-3",
-              !isPending && "group cursor-pointer"
-            )}
-            style={{ animationDelay: `${(i % 12) * 50}ms` }}
-            onClick={() => {
-              if (!isPending) onImageClick?.(i);
-            }}
-          >
-            <div className={cn(
-              "glass rounded-xl overflow-hidden transition-all duration-300 relative",
-              !isPending && "group-hover:border-accent-500/30 group-hover:scale-[1.02]",
-              isPending && "animate-pulse-glow"
-            )}>
-              <img
-                src={img.url}
-                alt={img.label ?? `Image ${i + 1}`}
-                className={cn(
-                  "w-full h-auto object-cover transition-all duration-500",
-                  isPending && "opacity-50"
-                )}
-                loading="lazy"
-              />
-              {/* Pending overlay */}
-              {isPending && (
-                <div className="absolute inset-0 flex items-center justify-center bg-surface-900/30 backdrop-blur-[1px]">
-                  <div className="flex flex-col items-center gap-2">
-                    <Loader2 className="h-6 w-6 animate-spin text-accent-400" />
-                    <span className="text-xs font-medium text-accent-400/80 tracking-wide">
-                      Verifying...
-                    </span>
+      <AnimatePresence mode="popLayout">
+        {images.map((img, i) => {
+          const isPending = img.status === "pending";
+          return (
+            <motion.div
+              key={img.url}
+              layout
+              variants={cardVariants}
+              initial="initial"
+              animate="animate"
+              exit="exit"
+              className={cn(
+                "break-inside-avoid mb-3",
+                !isPending && "group cursor-pointer"
+              )}
+              onClick={() => {
+                if (!isPending) onImageClick?.(i);
+              }}
+            >
+              <div className={cn(
+                "glass rounded-xl overflow-hidden transition-all duration-300 relative",
+                !isPending && "group-hover:border-accent-500/30 group-hover:scale-[1.02]",
+                isPending && "animate-pulse-glow"
+              )}>
+                <img
+                  src={img.url}
+                  alt={img.label ?? `Image ${i + 1}`}
+                  className={cn(
+                    "w-full h-auto object-cover transition-all duration-500",
+                    isPending && "opacity-50"
+                  )}
+                  loading="lazy"
+                />
+                {/* Pending overlay */}
+                {isPending && (
+                  <div className="absolute inset-0 flex items-center justify-center bg-surface-900/30 backdrop-blur-[1px]">
+                    <div className="flex flex-col items-center gap-2">
+                      <Loader2 className="h-6 w-6 animate-spin text-accent-400" />
+                      <span className="text-xs font-medium text-accent-400/80 tracking-wide">
+                        Verifying...
+                      </span>
+                    </div>
                   </div>
-                </div>
-              )}
-              {img.label && (
-                <div className="px-3 py-2">
-                  <p className="text-xs text-neutral-500 truncate">{img.label}</p>
-                </div>
-              )}
-            </div>
-          </div>
-        );
-      })}
+                )}
+                {img.label && (
+                  <div className="px-3 py-2">
+                    <p className="text-xs text-neutral-500 truncate">{img.label}</p>
+                  </div>
+                )}
+              </div>
+            </motion.div>
+          );
+        })}
+      </AnimatePresence>
     </div>
   );
 }
