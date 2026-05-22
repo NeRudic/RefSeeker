@@ -4,6 +4,7 @@ import asyncio
 import io
 import json
 import os
+import shutil
 
 import PIL.Image
 import google.generativeai as genai
@@ -163,21 +164,25 @@ async def _verify_and_save(candidates: list[tuple], progress_tracker=None) -> li
         if not relevant:
             state.filter_stats["not_relevant"] += 1
             log_lines.append(f"  {url}: not relevant — {reason}")
+            _cleanup_pending(url)
             if progress_tracker:
                 progress_tracker.image_rejected(url, reason, filter_type="not_relevant")
         elif not high_quality:
             state.filter_stats["low_quality"] += 1
             log_lines.append(f"  {url}: low quality — {reason}")
+            _cleanup_pending(url)
             if progress_tracker:
                 progress_tracker.image_rejected(url, reason, filter_type="low_quality")
         elif watermarked:
             state.filter_stats["watermarked"] += 1
             log_lines.append(f"  {url}: watermarked — {reason}")
+            _cleanup_pending(url)
             if progress_tracker:
                 progress_tracker.image_rejected(url, reason, filter_type="watermarked")
         elif eval_item.get("unwanted_content", False):
             state.filter_stats["unwanted_content"] += 1
             log_lines.append(f"  {url}: unwanted content — {reason}")
+            _cleanup_pending(url)
             if progress_tracker:
                 progress_tracker.image_rejected(url, reason, filter_type="unwanted_content")
         else:
@@ -185,24 +190,42 @@ async def _verify_and_save(candidates: list[tuple], progress_tracker=None) -> li
                 log_lines.append(f"  {url}: SKIPPED — low disk space")
                 break
             state.saved_count += 1
-            if progress_tracker:
-                progress_tracker.image_approved(url, reason, state.saved_count, state.max_images)
-            try:
-                ext = _mime_to_ext(mime_type)
-                file_name = f"image_{state.saved_count}.{ext}"
-                file_path = os.path.join(state.output_dir, file_name)
+            ext = _mime_to_ext(mime_type)
+            file_name = f"image_{state.saved_count}.{ext}"
+            file_path = os.path.join(state.output_dir, file_name)
+            # Move pending file to final location, or save from bytes as fallback
+            pending_filename = state.pending_files.pop(url, None)
+            if pending_filename:
+                pending_path = os.path.join(state.output_dir, ".pending", pending_filename)
+                if os.path.exists(pending_path):
+                    shutil.move(pending_path, file_path)
+                else:
+                    with open(file_path, "wb") as f:
+                        f.write(image_bytes)
+            else:
                 with open(file_path, "wb") as f:
                     f.write(image_bytes)
-                log_lines.append(
-                    f"  {url}: SAVED ({state.saved_count}/{state.max_images}) — {reason}"
-                )
-                logger.debug("Saved image %d/%d -> %s", state.saved_count, state.max_images, file_path)
-            except OSError as e:
-                logger.error("Failed to save image %d: %s", state.saved_count + 1, e)
-                log_lines.append(f"  {url}: FAILED TO SAVE — {e}")
-                state.saved_count -= 1
+            final_path = f"/api/collections/{state.query_folder}/images/{file_name}"
+            if progress_tracker:
+                progress_tracker.image_approved(url, final_path, reason, state.saved_count, state.max_images)
+            log_lines.append(
+                f"  {url}: SAVED ({state.saved_count}/{state.max_images}) — {reason}"
+            )
+            logger.debug("Saved image %d/%d -> %s", state.saved_count, state.max_images, file_path)
 
             if state.is_full:
                 break
 
     return log_lines
+
+
+def _cleanup_pending(url: str) -> None:
+    """Remove a pending file for a rejected image."""
+    pending_filename = state.pending_files.pop(url, None)
+    if pending_filename:
+        pending_path = os.path.join(state.output_dir, ".pending", pending_filename)
+        try:
+            if os.path.exists(pending_path):
+                os.remove(pending_path)
+        except OSError:
+            pass

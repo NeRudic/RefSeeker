@@ -46,6 +46,9 @@ class ProgressTracker:
     def download_progress(self, current: int, total: int, url: str, status: str) -> None:
         self.push("download.progress", current=current, total=total, url=url, status=status)
 
+    def download_image_downloaded(self, url: str, pending_path: str, collection: str, index: int) -> None:
+        self.push("download.image_downloaded", url=url, pending_path=pending_path, collection=collection, index=index)
+
     def download_complete(self, downloaded: int) -> None:
         self.push("download.complete", downloaded=downloaded)
 
@@ -55,8 +58,8 @@ class ProgressTracker:
     def verification_batch_complete(self, batch_num: int, total_batches: int) -> None:
         self.push("verification.batch_complete", batch=batch_num, total=total_batches)
 
-    def image_approved(self, url: str, reason: str, saved_count: int, max_images: int) -> None:
-        self.push("image.approved", url=url, reason=reason, saved=saved_count, max=max_images)
+    def image_approved(self, url: str, path: str, reason: str, saved_count: int, max_images: int) -> None:
+        self.push("image.approved", url=url, path=path, reason=reason, saved=saved_count, max=max_images)
 
     def image_rejected(self, url: str, reason: str, filter_type: str) -> None:
         self.push("image.rejected", url=url, reason=reason, filter=filter_type)

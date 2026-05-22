@@ -15,6 +15,19 @@ import {
 import { Badge } from "@/shared/ui/badge";
 import { ArrowLeft, Loader2, AlertCircle } from "lucide-react";
 
+type ImageStatus = "pending" | "approved";
+
+interface TrackedImage {
+  /** Original remote URL used as unique identifier */
+  id: string;
+  /** Current display URL (pending path or final approved path) */
+  displayUrl: string;
+  /** Verification status */
+  status: ImageStatus;
+  /** Label for the image card */
+  label: string;
+}
+
 export function SearchPage() {
   const { sessionId } = useParams<{ sessionId: string }>();
   const navigate = useNavigate();
@@ -24,7 +37,7 @@ export function SearchPage() {
     download: "idle",
     verify: "idle",
   });
-  const [approvedUrls, setApprovedUrls] = useState<string[]>([]);
+  const [images, setImages] = useState<TrackedImage[]>([]);
   const [logEvents, setLogEvents] = useState<
     { type: "approved" | "rejected" | "info"; message: string; timestamp: number }[]
   >([]);
@@ -37,6 +50,10 @@ export function SearchPage() {
   const [error, setError] = useState("");
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+
+  // Derive approved images (for lightbox navigation and count)
+  const approvedImages = images.filter((img) => img.status === "approved");
+  const pendingCount = images.filter((img) => img.status === "pending").length;
 
   // Fetch initial session state
   useEffect(() => {
@@ -108,6 +125,18 @@ export function SearchPage() {
         ]);
         break;
 
+      case "download.image_downloaded":
+        setImages((prev) => [
+          ...prev,
+          {
+            id: data.url as string,
+            displayUrl: `/api/pending/${data.collection}/${(data.pending_path as string).split("/").pop()}`,
+            status: "pending",
+            label: `#${prev.length + 1}`,
+          },
+        ]);
+        break;
+
       case "download.complete":
         setPipeline((p) => ({ ...p, download: "done" }));
         setLogEvents((prev) => [
@@ -144,10 +173,13 @@ export function SearchPage() {
         break;
 
       case "image.approved":
-        setApprovedUrls((prev) => [
-          ...prev,
-          `/api/collections/${encodeURIComponent(String(data.url).split("/").pop() ?? "")}/images/${data.saved}`,
-        ]);
+        setImages((prev) =>
+          prev.map((img) =>
+            img.id === data.url
+              ? { ...img, displayUrl: data.path as string, status: "approved" as ImageStatus }
+              : img
+          )
+        );
         setSessionState((s) => ({
           ...s,
           saved: data.saved as number,
@@ -164,6 +196,8 @@ export function SearchPage() {
         break;
 
       case "image.rejected":
+        // Remove rejected pending images from the grid
+        setImages((prev) => prev.filter((img) => img.id !== data.url));
         setLogEvents((prev) => [
           ...prev,
           { type: "rejected", message: `${(data.reason as string) || "Rejected"} (${data.filter})`, timestamp: Date.now() },
@@ -217,6 +251,11 @@ export function SearchPage() {
               {sessionState.saved} {sessionState.saved === 1 ? "image" : "images"} saved
             </Badge>
           )}
+          {pendingCount > 0 && !finished && (
+            <Badge variant="info">
+              {pendingCount} pending verification
+            </Badge>
+          )}
         </div>
       </div>
 
@@ -247,26 +286,36 @@ export function SearchPage() {
           </div>
         </div>
 
-        {/* Approved images */}
+        {/* Images grid */}
         <div className="lg:col-span-3">
           <h2 className="text-sm font-medium text-neutral-300 mb-4">
-            Approved Images ({approvedUrls.length})
+            Images ({approvedImages.length}{pendingCount > 0 ? ` + ${pendingCount} pending` : ""})
           </h2>
-          {approvedUrls.length === 0 ? (
+          {images.length === 0 ? (
             <div className="glass rounded-2xl p-12 text-center">
               <p className="text-neutral-600">
                 {finished
-                  ? "No images were approved"
-                  : "Waiting for images to be approved..."}
+                  ? "No images were saved"
+                  : pipeline.download === "active" || pipeline.verify === "active"
+                    ? "Downloading images..."
+                    : "Waiting for images..."}
               </p>
             </div>
           ) : (
             <ImageGrid
-              images={approvedUrls.map((url, i) => ({
-                url,
-                label: `#${i + 1}`,
+              images={images.map((img) => ({
+                url: img.displayUrl,
+                status: img.status,
+                label: img.status === "approved" ? `#${approvedImages.indexOf(img) + 1}` : "Verifying...",
               }))}
-              onImageClick={(idx) => setLightboxIndex(idx)}
+              onImageClick={(idx) => {
+                // Only open lightbox for approved images
+                if (images[idx]?.status === "approved") {
+                  // Map grid index to approved-only index
+                  const approvedIdx = approvedImages.indexOf(images[idx]);
+                  setLightboxIndex(approvedIdx);
+                }
+              }}
             />
           )}
         </div>
@@ -275,8 +324,8 @@ export function SearchPage() {
       {/* Lightbox */}
       {lightboxIndex !== null && (
         <Lightbox
-          images={approvedUrls.map((url, i) => ({
-            url,
+          images={approvedImages.map((img, i) => ({
+            url: img.displayUrl,
             label: `Approved image #${i + 1}`,
           }))}
           currentIndex={lightboxIndex}

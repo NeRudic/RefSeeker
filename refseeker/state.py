@@ -24,6 +24,7 @@ class CollectionState:
     max_images: int = 50
     downloaded_urls: set[str] = field(default_factory=set)
     filter_stats: Counter = field(default_factory=Counter)
+    pending_files: dict[str, str] = field(default_factory=dict)
 
     # Observability
     session_start: float = 0.0
@@ -38,6 +39,7 @@ class CollectionState:
         self.max_images = max_images
         self.downloaded_urls.clear()
         self.filter_stats.clear()
+        self.pending_files.clear()
         self.session_start = time.time()
         self.gpt_calls = 0
         self.download_attempts = 0

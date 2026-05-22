@@ -149,6 +149,15 @@ async def get_collection_image(name: str, filename: str):
     return FileResponse(str(file_path))
 
 
+@app.get("/api/pending/{collection}/{filename}")
+async def get_pending_image(collection: str, filename: str):
+    """Serve a pending (not yet verified) image from a collection's .pending/ directory."""
+    file_path = REFERENCES_DIR / collection / ".pending" / filename
+    if not file_path.exists() or not file_path.is_file():
+        raise HTTPException(status_code=404, detail="Pending image not found")
+    return FileResponse(str(file_path))
+
+
 @app.delete("/api/collections/{name}")
 async def delete_collection(name: str):
     """Delete an entire collection."""
@@ -187,8 +196,13 @@ async def _run_pipeline(session_id: str, tracker: ProgressTracker, query: str, m
         logger.exception("Session %s failed", session_id)
         tracker.session_error(message=str(e))
     finally:
-        # Keep session data for a while so clients can fetch final state
-        pass
+        # Clean up pending images directory
+        from .state import state as pipeline_state
+        if pipeline_state.output_dir:
+            import shutil
+            pending_dir = Path(pipeline_state.output_dir) / ".pending"
+            if pending_dir.exists():
+                shutil.rmtree(pending_dir, ignore_errors=True)
 
 
 # ── Entry point ─────────────────────────────────────────────────────────────

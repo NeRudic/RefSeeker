@@ -1,4 +1,5 @@
 import asyncio
+import hashlib
 import os
 
 import httpx
@@ -8,6 +9,7 @@ from .image import (
     _detect_mime_type,
     _has_null_byte,
     _is_likely_image_url,
+    _mime_to_ext,
     _resolve_full_resolution_url,
     _validate_image,
 )
@@ -72,6 +74,32 @@ async def _download_one(url: str, sem: asyncio.Semaphore, progress_tracker=None)
             return None
 
         state.downloaded_urls.add(url)
+
+        # Save to pending directory for immediate UI display
+        pending_ext = _mime_to_ext(mime_type)
+        url_hash = hashlib.md5(url.encode()).hexdigest()[:8]
+        pending_filename = f"img_{url_hash}.{pending_ext}"
+        pending_dir = os.path.join(state.output_dir, ".pending")
+        os.makedirs(pending_dir, exist_ok=True)
+        pending_path = os.path.join(pending_dir, pending_filename)
+        with open(pending_path, "wb") as f:
+            f.write(image_bytes)
+        state.pending_files[url] = pending_filename
+
+        if progress_tracker:
+            progress_tracker.download_image_downloaded(
+                url=url,
+                pending_path=f".pending/{pending_filename}",
+                collection=state.query_folder,
+                index=state.download_attempts,
+            )
+            progress_tracker.download_progress(
+                current=state.download_attempts,
+                total=len(state.downloaded_urls),
+                url=url,
+                status="downloaded",
+            )
+
         return (url, mime_type, image_bytes, width, height)
 
 
