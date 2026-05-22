@@ -107,18 +107,25 @@ web/
        → дедупликация
        → пре-фильтр URL (_is_likely_image_url + _has_null_byte)
        → full-res резолюция (_resolve_full_resolution_url + fallback)
-       → скачивание (5 concurrent, httpx)
-       → resize до 768px для API
-       → параллельная верификация (providers split round-robin):
-         ├── Gemini 2.5 Flash → SSE (image_approved/rejected)
-         ├── Mistral Large 3  → SSE (image_approved/rejected)
-         └── Ministral 3 14B  → SSE (image_approved/rejected)
-       → fallback при ошибке провайдера
-       → сохранение в references/<query>/
+       ┌──────────────────────────────────────────────────────────┐
+       │  Конвейер: скачивание (5 concurrent, httpx) + верификация│
+       │                                                          │
+       │  По мере загрузки каждого изображения:                   │
+       │  1. Сохраняется в .pending/ (сразу показывается в UI)    │
+       │  2. Добавляется в буфер                                   │
+       │  3. При накоплении 75+ → параллельная верификация:       │
+       │     ├── Gemini 2.5 Flash   → SSE (image_approved/rejected)│
+       │     ├── Mistral Large 3    → SSE (image_approved/rejected)│
+       │     ├── Pixtral Large      → SSE (image_approved/rejected)│
+       │     ├── Ministral 3 14B    → SSE (image_approved/rejected)│
+       │     └── Ministral 8B       → SSE (image_approved/rejected)│
+       │  4. fallback при ошибке провайдера                        │
+       │  5. Одобренные → сохранение в references/<query>/         │
+       └──────────────────────────────────────────────────────────┘
 ```
 
-Результаты от каждого провайдера приходят независимо — пользователь видит
-первые изображения сразу, не дожидаясь остальных провайдеров.
+Загрузка и верификация работают параллельно — первая партия изображений
+уходит на проверку, не дожидаясь окончания скачивания остальных.
 
 ## Ключевые параметры (config.py)
 

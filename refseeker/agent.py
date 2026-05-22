@@ -4,7 +4,7 @@ import os
 
 import httpx
 
-from .config import DOWNLOAD_CONCURRENCY, URLLIB_TIMEOUT, logger
+from .config import BATCH_SIZE, DOWNLOAD_CONCURRENCY, PROVIDER_CONFIG, URLLIB_TIMEOUT, logger
 from .image import (
     _detect_mime_type,
     _has_null_byte,
@@ -155,28 +155,53 @@ async def run_agent(query: str, max_images: int = 50, progress_tracker=None, bla
         logger.info("Session finished. %s", state.log_metrics())
         return
 
-    # 3. Download with concurrency
+    # 3. Pipeline: download + verify concurrently
     sem = asyncio.Semaphore(DOWNLOAD_CONCURRENCY)
     total_to_download = len(unique_urls)
     if progress_tracker:
         progress_tracker.download_started(total=total_to_download)
 
     download_tasks = [_download_one(url, sem, progress_tracker=progress_tracker) for url in unique_urls]
-    results = await asyncio.gather(*download_tasks)
 
-    candidates = [r for r in results if r is not None]
-    logger.info("Downloaded %d valid candidates", len(candidates))
+    candidates_buffer: list = []
+    verify_tasks: list[asyncio.Task] = []
+    total_downloaded = 0
 
+    # Flush buffer to verification when we have enough for efficient provider round-robin
+    _VERIFY_BATCH = BATCH_SIZE * max(len(PROVIDER_CONFIG), 1)
+
+    async def _flush():
+        nonlocal candidates_buffer
+        if not candidates_buffer:
+            return
+        batch = list(candidates_buffer)
+        candidates_buffer.clear()
+        task = asyncio.create_task(_verify_and_save(batch, progress_tracker))
+        verify_tasks.append(task)
+
+    for coro in asyncio.as_completed(download_tasks):
+        result = await coro
+        if result is None:
+            continue
+        total_downloaded += 1
+        candidates_buffer.append(result)
+        if len(candidates_buffer) >= _VERIFY_BATCH:
+            await _flush()
+
+    logger.info("Downloaded %d valid candidates", total_downloaded)
     if progress_tracker:
-        progress_tracker.download_complete(downloaded=len(candidates))
+        progress_tracker.download_complete(downloaded=total_downloaded)
 
-    if not candidates:
+    if not total_downloaded:
         logger.warning("No valid images could be downloaded.")
         logger.info("Session finished. %s", state.log_metrics())
         return
 
-    # 4. Verify in parallel across providers
-    logger.info("Verifying %d images across providers ...", len(candidates))
-    await _verify_and_save(candidates, progress_tracker=progress_tracker)
+    # Flush remaining candidates to verification
+    await _flush()
+
+    # Wait for all in-flight verification tasks
+    if verify_tasks:
+        await asyncio.gather(*verify_tasks, return_exceptions=True)
 
     logger.info("Session finished. %s", state.log_metrics())
