@@ -9,7 +9,7 @@ from fastapi.responses import FileResponse, StreamingResponse
 from pydantic import BaseModel
 
 from .agent import run_agent
-from .config import logger
+from .config import IMAGE_BLACKLIST, logger, update_image_blacklist
 from .progress import ProgressTracker
 
 # ── Session store ───────────────────────────────────────────────────────────
@@ -174,6 +174,27 @@ async def delete_collection(name: str):
 @app.get("/api/health")
 async def health():
     return {"status": "ok"}
+
+
+# ── Settings ─────────────────────────────────────────────────────────────────
+
+class UpdateBlacklistRequest(BaseModel):
+    items: list[str]
+
+
+@app.get("/api/settings/blacklist")
+async def get_blacklist():
+    """Return the current image blacklist."""
+    return {"items": list(IMAGE_BLACKLIST)}
+
+
+@app.post("/api/settings/blacklist")
+async def set_blacklist(body: UpdateBlacklistRequest):
+    """Replace the image blacklist with a new set of items."""
+    items = [item.strip() for item in body.items if item.strip()]
+    update_image_blacklist(items)
+    logger.info("Blacklist updated: %d items", len(items))
+    return {"items": list(IMAGE_BLACKLIST)}
 
 
 # ── Background pipeline runner ──────────────────────────────────────────────

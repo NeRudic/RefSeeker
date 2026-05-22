@@ -112,3 +112,25 @@ export async function deleteCollection(
   );
   if (!res.ok) throw new Error("Failed to delete collection");
 }
+
+export interface BlacklistResponse {
+  items: string[];
+}
+
+export async function getBlacklist(): Promise<BlacklistResponse> {
+  const res = await fetch(`${BASE}/settings/blacklist`);
+  if (!res.ok) throw new Error("Failed to fetch blacklist");
+  return res.json();
+}
+
+export async function updateBlacklist(
+  items: string[]
+): Promise<BlacklistResponse> {
+  const res = await fetch(`${BASE}/settings/blacklist`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ items }),
+  });
+  if (!res.ok) throw new Error("Failed to update blacklist");
+  return res.json();
+}

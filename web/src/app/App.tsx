@@ -5,6 +5,7 @@ import { HomePage } from "@/pages/HomePage";
 import { SearchPage } from "@/pages/SearchPage";
 import { GalleryPage } from "@/pages/GalleryPage";
 import { CollectionPage } from "@/pages/CollectionPage";
+import { SettingsPage } from "@/pages/SettingsPage";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -26,6 +27,7 @@ export function App() {
             <Route path="/search/:sessionId" element={<SearchPage />} />
             <Route path="/gallery" element={<GalleryPage />} />
             <Route path="/gallery/:name" element={<CollectionPage />} />
+            <Route path="/settings" element={<SettingsPage />} />
           </Routes>
         </main>
       </BrowserRouter>

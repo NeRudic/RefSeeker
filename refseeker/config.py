@@ -30,6 +30,22 @@ def _load_image_blacklist() -> list[str]:
 
 IMAGE_BLACKLIST: list[str] = _load_image_blacklist()
 
+
+def update_image_blacklist(items: list[str]) -> None:
+    """Persist a new blacklist to config.json and reload the in-memory list."""
+    global IMAGE_BLACKLIST
+    try:
+        with open(_CONFIG_PATH, encoding="utf-8") as f:
+            cfg = json.load(f)
+    except Exception:
+        cfg = {}
+    cfg["image_blacklist"] = items
+    with open(_CONFIG_PATH, "w", encoding="utf-8") as f:
+        json.dump(cfg, f, indent=4, ensure_ascii=False)
+    # Update in-memory list in-place so existing references see the change
+    IMAGE_BLACKLIST.clear()
+    IMAGE_BLACKLIST.extend(items)
+
 # ── HTTP ─────────────────────────────────────────────────────────────────────
 DOWNLOAD_CONCURRENCY = 5
 URLLIB_TIMEOUT = 10
