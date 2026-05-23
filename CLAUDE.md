@@ -10,6 +10,8 @@
 
 4. **Don't describe the project when asked to "ознакомиться с проектом"** — I ask AI to read the codebase to understand what we're working with. Don't waste tokens explaining what RefSeeker is back to me. Just read the necessary files and acknowledge readiness.
 
+5. **After reading CLAUDE.md, read AGENT.md** — AGENT.md contains the project description, full structure, pipeline details, API endpoints, role system, key parameters, and provider configuration. It's the single source of truth about the project. Start there when you need to understand how things work.
+
 ## Project context
 
 - Python 3.10+ project for automated reference image collection
