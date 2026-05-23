@@ -48,6 +48,7 @@ export function SearchPage() {
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [elapsed, setElapsed] = useState(0);
+  const finishedRef = useRef(false);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const startTimeRef = useRef<number | null>(null);
 
@@ -103,7 +104,11 @@ export function SearchPage() {
       (event: PipelineEvent) => {
         handleEvent(event);
       },
-      () => setError("Connection lost — refreshing...")
+      () => {
+        if (!finishedRef.current) {
+          setError("Connection lost — refreshing...");
+        }
+      },
     );
 
     return unsubscribe;
@@ -209,6 +214,7 @@ export function SearchPage() {
       case "session.complete":
         setPipeline((p) => ({ ...p, verify: "done" }));
         setFinished(true);
+        finishedRef.current = true;
         stopTimer();
         setLogEvents((prev) => [
           ...prev,
@@ -219,6 +225,7 @@ export function SearchPage() {
       case "session.error":
         setError(data.message as string);
         setFinished(true);
+        finishedRef.current = true;
         stopTimer();
         break;
     }

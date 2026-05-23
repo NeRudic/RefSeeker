@@ -86,3 +86,15 @@ class ProgressTracker:
             except asyncio.TimeoutError:
                 # Send keepalive comment
                 yield ": keepalive\n"
+
+        # Drain remaining events — handles the race where session_complete
+        # pushes the event and sets _finished between our yield and the
+        # while check, leaving the event unread in the queue.
+        while not self._queue.empty():
+            try:
+                event = self._queue.get_nowait()
+                yield event.serialize()
+                if event.type in ("session.complete", "session.error"):
+                    return
+            except asyncio.QueueEmpty:
+                break
