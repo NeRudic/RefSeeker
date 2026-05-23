@@ -138,9 +138,11 @@ def _has_null_byte(url: str) -> bool:
 
 def _validate_image(image_bytes: bytes) -> tuple[bool, int, int]:
     try:
-        img = Image.open(BytesIO(image_bytes))
+        buf = BytesIO(image_bytes)
+        img = Image.open(buf)
         img.verify()
-        img = Image.open(BytesIO(image_bytes))
+        buf.seek(0)
+        img = Image.open(buf)
         return True, img.width, img.height
     except Exception:
         return False, 0, 0

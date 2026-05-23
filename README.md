@@ -1,22 +1,22 @@
 # RefSeeker — автоматический сбор референсных изображений
 
-**RefSeeker** — Python-утилита для автоматического поиска и загрузки качественных референсных изображений через браузер с использованием ИИ.
+**RefSeeker** — утилита для поиска и отбора качественных референсных изображений через Serper API (Google Images) с параллельной верификацией через несколько vision-моделей.
 
 ## Возможности
 
-- **Автоматический поиск** — поиск изображений через Serper API (Google Images)
-- **Интеллектуальная фильтрация** — каждое изображение проверяется через Gemini 2.5 Flash на релевантность, качество и наличие водяных знаков
-- **Прогрессивное сохранение** — изображения сохраняются сразу по мере нахождения, не дожидаясь обхода всех страниц
-- **Авто-верификация** — каждое изображение проверяется через Gemini 2.5 Flash на релевантность, качество и наличие водяных знаков
-- **Гибкая настройка сайтов** — белый и чёрный списки доменов через `config.json`
-- **Улучшение запроса** — опционально ИИ расширяет поисковый запрос для лучших результатов
+- **Поиск через Serper API** — два запроса на сессию для максимального покрытия
+- **Параллельная верификация** — изображения проверяются одновременно 4 моделями (Mistral Large 3, Pixtral Large, Ministral 14B, Ministral 8B) с round-robin распределением
+- **Real-time прогресс** — SSE-поток событий, изображения появляются в UI сразу после загрузки
+- **Авто-фильтрация** — отсев по размеру, релевантности, качеству, водяным знакам и нежелательному контенту
+- **Fallback-механизм** — при ошибке провайдера его батч уходит к следующему
+- **REST API + Web UI** — FastAPI бэкенд с React фронтендом
 
 ## Установка
 
 ### Требования
 
 - Python 3.10+
-- API-ключи Serper и Gemini
+- API-ключи: Serper и хотя бы один из vision-провайдеров
 
 ### Шаги
 
@@ -38,8 +38,8 @@ source .venv/bin/activate
 pip install -r requirements.txt
 
 # 5. Настроить API-ключи
-echo "SERPER_API_KEY=your-serper-key-here" > .env
-echo "GEMINI_API_KEY=your-gemini-key-here" >> .env
+echo "SERPER_API_KEY=your-serper-key" > .env
+echo "MISTRAL_API_KEY=your-mistral-key" >> .env
 ```
 
 ## Настройка
@@ -48,114 +48,155 @@ echo "GEMINI_API_KEY=your-gemini-key-here" >> .env
 
 ```
 SERPER_API_KEY=your-serper-key-here
-GEMINI_API_KEY=your-gemini-key-here
+MISTRAL_API_KEY=your-mistral-key-here
+GEMINI_API_KEY=your-gemini-key-here  # опционально, пока отключён
 ```
 
 ### `config.json`
 
 ```json
 {
-    "whitelist": [
-        "net-maquettes.com",
-        "cybermodeler.com"
-    ],
-    "blacklist": [
-        "pinterest.com",
-        "instagram.com",
-        "facebook.com",
-        "reddit.com",
-        "twitter.com",
-        "x.com"
-    ]
+    "image_blacklist": ["graphic_nudity", "violence"]
 }
 ```
 
-- **whitelist** — сайты, которые агент ищет в первую очередь (приоритетные)
-- **blacklist** — сайты, которые агент строго избегает
+`image_blacklist` — опциональный список ключевых слов для фильтрации нежелательного контента.
 
 ## Использование
+
+### CLI
 
 ```bash
 python main.py
 ```
 
-1. Введите поисковый запрос (например, `A-20G Havoc`)
-2. При желании улучшите запрос через Gemini (`y`/`n`)
-3. Агент запускает поиск через Serper API
-4. Изображения сохраняются в `./references/<query>/`
+Введите поисковый запрос (например, `Tu-160`) и желаемое количество изображений.
 
-**Цель:** 10–30 качественных изображений на запрос.
+### API сервер
+
+```bash
+.venv/Scripts/python run_api.py
+# → http://127.0.0.1:8000
+```
+
+### Web UI
+
+```bash
+cd web
+npm run dev
+# → http://localhost:5173 (проксирует /api → 8000)
+```
+
+### Debug
+
+```bash
+.venv/Scripts/python debug_run.py
+# Авто-запрос "Tu-160", лог в logs/last-run.log
+```
 
 ## Структура проекта
 
 ```
 RefSeeker/
-├── main.py              # Точка входа
-├── config.json          # Белый и чёрный списки доменов
-├── .env                 # API-ключи Serper и Gemini
-├── .gitignore
-├── requirements.txt     # Зависимости
-├── FIXES.md             # Описание внесённых правок
-├── refseeker/           # Пакет с основной логикой
-│   ├── __init__.py
-│   ├── agent.py         # Точка входа агента (run_agent) и скачивание
-│   ├── searcher.py      # Поиск изображений через Serper API
-│   ├── config.py        # Константы, логирование, загрузка .env
-│   ├── image.py         # Обработка и валидация изображений
-│   ├── state.py         # Состояние сессии сбора
-│   └── verify.py        # Верификация через Gemini 2.5 Flash
-├── tests/               # Тесты
-│   ├── __init__.py
-│   ├── conftest.py
-│   ├── test_download.py
-│   ├── test_image.py
-│   └── test_state.py
-├── references/          # Папка с результатами (создаётся автоматически)
-│   └── <query>/
-└── .venv/               # Виртуальное окружение
+├── main.py                 # CLI точка входа
+├── run_api.py              # FastAPI сервер
+├── debug_run.py            # Debug-раннер
+├── config.json             # image_blacklist
+├── .env                    # API-ключи
+├── requirements.txt
+├── AGENT.md                # Документация для Claude
+├── refseeker/              # Пакет бэкенда
+│   ├── agent.py            # Оркестрация пайплайна
+│   ├── api.py              # FastAPI: REST + SSE
+│   ├── config.py           # Константы, логгер, провайдеры
+│   ├── image.py            # MIME-детекция, resize, валидация
+│   ├── progress.py         # SSE-очередь событий
+│   ├── searcher.py         # Поиск через Serper API
+│   ├── state.py            # Состояние сессии
+│   └── verify.py           # Параллельная верификация
+├── web/                    # React фронтенд
+├── tests/                  # Тесты
+└── references/             # Сохранённые коллекции
 ```
+
+## API Endpoints
+
+| Метод | Путь | Описание |
+|---|---|---|
+| POST | `/api/sessions` | Создать сессию поиска |
+| GET | `/api/sessions/{id}/stream` | SSE-поток прогресса |
+| GET | `/api/sessions/{id}` | Состояние сессии |
+| GET | `/api/collections` | Список коллекций |
+| GET | `/api/collections/{name}` | Изображения коллекции |
+| GET | `/api/collections/{name}/images/{file}` | Файл изображения |
+| DELETE | `/api/collections/{name}` | Удалить коллекцию |
+| GET | `/api/health` | Health check |
+| GET | `/api/settings/blacklist` | Текущий blacklist |
+| POST | `/api/settings/blacklist` | Обновить blacklist |
 
 ## Как это работает
 
-### Поток выполнения
+### Пайплайн
 
 ```
-Ввод запроса → Улучшить запрос? [y/n]
-    → Serper API поиск (2 варианта: "query walkaround", "query reference photos")
-    → Скачивание кандидатов (5 concurrent, httpx)
-    → Верификация Gemini 2.5 Flash (релевантность, качество, водяные знаки)
-    → Одобренные сохраняются в references/<query>/
-    → Останавливается при достижении лимита изображений
+запрос → Serper API (2 variants: "query walkaround", "query reference photos")
+       → дедупликация
+       → пре-фильтр URL (null-байты, не-image расширения)
+       → full-res резолюция (WordPress/thumb паттерны)
+       ┌──────────────────────────────────────────────────────┐
+       │  Скачивание (5 concurrent, httpx) + верификация      │
+       │                                                      │
+       │  1. Сохраняется в .pending/ (сразу в UI)             │
+       │  2. Добавляется в буфер                              │
+       │  3. При накоплении 30+ → параллельная верификация:   │
+       │     ├── Mistral Large 3    → SSE (approved/rejected)  │
+       │     ├── Pixtral Large      → SSE (approved/rejected)  │
+       │     ├── Ministral 14B      → SSE (approved/rejected)  │
+       │     └── Ministral 8B       → SSE (approved/rejected)  │
+       │  4. Fallback при ошибке провайдера                    │
+       │  5. Одобренные → references/<query>/                  │
+       └──────────────────────────────────────────────────────┘
 ```
 
-### Ключевые компоненты
+### Фильтрация
 
-| Модуль / функция | Описание |
+Каждое изображение проходит этапы:
+
+1. **Пре-фильтр URL** — null-байты, непохожие на изображения URL
+2. **Разрешение** — не менее 300×300 пикселей
+3. **Релевантность** — vision-модели определяют соответствие запросу
+4. **Качество** — проверка на резкость, водяные знаки, текстовые наложения
+5. **Нежелательный контент** — `image_blacklist` в `config.json`
+
+### Провайдеры
+
+| Провайдер | Модель |
 |---|---|
-| `searcher.search_images` | Поиск изображений через Serper API (Google Images) |
-| `download._download_one` | Асинхронное скачивание одного изображения (httpx) |
-| `verify._verify_and_save` | Отправляет батч в Gemini 2.5 Flash для верификации, сохраняет одобренные |
-| `image._resolve_full_resolution_url` | Выводит full-res URL из thumbnail (WordPress, /thumb/ паттерны) |
+| Mistral | `mistral-large-2512` (Mistral Large 3) |
+| Mistral | `pixtral-large-2411` (Pixtral Large) |
+| Mistral | `ministral-14b-2512` (Ministral 3 14B) |
+| Mistral | `ministral-8b-2512` |
 
-### Фильтрация изображений
-
-Каждое изображение проходит три этапа проверки:
-
-1. **Разрешение** — не менее 300×300 пикселей (проверяется до вызова Gemini)
-2. **Релевантность** — Gemini 2.5 Flash определяет, относится ли изображение к запросу
-3. **Качество** — проверка на резкость, водяные знаки, текстовые наложения
-
-Одобренные изображения сохраняются в папку запроса.
+Батчи изображений распределяются round-robin. Каждый провайдер стримит результаты через SSE. При ошибке — fallback на следующий.
 
 ## Зависимости
 
-- `httpx` — HTTP-клиент для API-вызовов и скачивания изображений
-- `google-genai` — Gemini 2.5 Flash для vision-верификации
-- `python-dotenv` — загрузка переменных окружения
-- `Pillow` — проверка и обработка изображений
+- `httpx` — HTTP-клиент
+- `google-genai` — Gemini API (отключён)
+- `mistralai` — Mistral API
+- `Pillow` — обработка изображений
+- `python-dotenv` — загрузка .env
+- `fastapi` + `uvicorn` — API сервер
+
+## Тесты
+
+```bash
+.venv/Scripts/python -m pytest tests/ -q
+```
 
 ## Примечания
 
-- Для работы требуется графическое окружение (браузер открывается в GUI-режиме)
-- Расход токенов Gemini зависит от количества и размера изображений
-- При повторном запуске с тем же запросом файлы не перезаписываются — каждый запуск создаёт новый набор
+- `.env` и `refseeker.log` в `.gitignore` — ключи и логи не попадают в репозиторий
+- Расход токенов зависит от количества и размера изображений
+- При повторном запросе создаётся новая коллекция, файлы не перезаписываются
+- Gemini 2.5 Flash временно отключён в `config.py` из-за дневной квоты

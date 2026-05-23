@@ -4,7 +4,7 @@ import os
 
 import httpx
 
-from .config import BATCH_SIZE, DOWNLOAD_CONCURRENCY, PROVIDER_CONFIG, URLLIB_TIMEOUT, logger
+from .config import BATCH_SIZE, DOWNLOAD_CONCURRENCY, MIN_IMAGE_DIM, PROVIDER_CONFIG, URLLIB_TIMEOUT, logger
 from .image import (
     _detect_mime_type,
     _has_null_byte,
@@ -25,6 +25,12 @@ _DOWNLOAD_HEADERS = {
     ),
 }
 
+_HTTP_CLIENT = httpx.AsyncClient(
+    timeout=httpx.Timeout(URLLIB_TIMEOUT, connect=5.0),
+    headers=_DOWNLOAD_HEADERS,
+    follow_redirects=True,
+)
+
 
 async def _download_one(url: str, sem: asyncio.Semaphore, progress_tracker=None) -> tuple | None:
     """Download a single image via HTTP, validate, return candidate tuple or None."""
@@ -41,13 +47,10 @@ async def _download_one(url: str, sem: asyncio.Semaphore, progress_tracker=None)
         for attempt_url in download_urls:
             logger.debug("Downloading: %s", attempt_url)
             try:
-                async with httpx.AsyncClient(
-                    timeout=httpx.Timeout(URLLIB_TIMEOUT, connect=5.0)
-                ) as client:
-                    resp = await client.get(attempt_url, headers=_DOWNLOAD_HEADERS, follow_redirects=True)
-                    resp.raise_for_status()
-                    image_bytes = resp.content
-                    content_type = resp.headers.get("Content-Type", "")
+                resp = await _HTTP_CLIENT.get(attempt_url)
+                resp.raise_for_status()
+                image_bytes = resp.content
+                content_type = resp.headers.get("Content-Type", "")
                 break
             except Exception as e:
                 logger.debug("Download failed: %s — %s", attempt_url, e)
@@ -71,6 +74,11 @@ async def _download_one(url: str, sem: asyncio.Semaphore, progress_tracker=None)
         if not is_valid:
             logger.debug("Corrupt image: %s", url)
             state.filter_stats["corrupt"] += 1
+            return None
+
+        if width < MIN_IMAGE_DIM or height < MIN_IMAGE_DIM:
+            logger.debug("Image too small (%dx%d): %s", width, height, url)
+            state.filter_stats["too_small"] += 1
             return None
 
         state.downloaded_urls.add(url)
@@ -168,7 +176,7 @@ async def run_agent(query: str, max_images: int = 50, progress_tracker=None, bla
     total_downloaded = 0
 
     # Flush buffer to verification when we have enough for efficient provider round-robin
-    _VERIFY_BATCH = BATCH_SIZE * max(len(PROVIDER_CONFIG), 1)
+    _VERIFY_BATCH = BATCH_SIZE * 2
 
     async def _flush():
         nonlocal candidates_buffer

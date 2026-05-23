@@ -31,7 +31,7 @@ _mistral_client = None
 
 def _get_gemini_client():
     global _gemini_client
-    if _gemini_client is None:
+    if _gemini_client is None and GEMINI_API_KEY:
         _gemini_client = genai.Client(api_key=GEMINI_API_KEY)
     return _gemini_client
 
@@ -47,7 +47,7 @@ def _get_mistral_client():
 # ── Shared prompt builder ──────────────────────────────────────────
 
 def _build_verification_prompt(candidates):
-    """Build prompt text + PIL images + max_tokens for a batch of candidates."""
+    """Build prompt text + PIL images + raw resize bytes + max_tokens for a batch of candidates."""
     blacklist_section = ""
     blacklist_field = ""
     session_blacklist = state.blacklist
@@ -77,16 +77,18 @@ def _build_verification_prompt(candidates):
     )
 
     pil_images = []
+    resized_images = []
     for _, _, image_bytes, _, _ in candidates:
         resized_bytes, _ = _resize_for_api(image_bytes)
         pil_images.append(PIL.Image.open(io.BytesIO(resized_bytes)))
+        resized_images.append(resized_bytes)
 
     max_tokens = min(
         8192,
         GPT_MAX_TOKENS_BASE + len(candidates) * GPT_MAX_TOKENS_PER_IMAGE,
     )
 
-    return prompt, pil_images, max_tokens
+    return prompt, pil_images, resized_images, max_tokens
 
 
 # ── Model adapters ─────────────────────────────────────────────────
@@ -137,20 +139,16 @@ async def _call_gemini(prompt, pil_images, max_tokens):
     return None
 
 
-async def _call_mistral(prompt, pil_images, max_tokens, model_id):
+async def _call_mistral(prompt, resized_images, max_tokens, model_id):
     """Call a Mistral vision model. Returns parsed dict or None on failure."""
     client = _get_mistral_client()
     if client is None:
         return None
 
-    # Build content block: text + base64 images
+    # Build content block: text + base64 images (already resized to JPEG by _resize_for_api)
     content = [{"type": "text", "text": prompt}]
-    for img in pil_images:
-        buf = io.BytesIO()
-        if img.mode != 'RGB':
-            img = img.convert('RGB')
-        img.save(buf, format="JPEG", quality=85)
-        b64 = base64.b64encode(buf.getvalue()).decode()
+    for img_bytes in resized_images:
+        b64 = base64.b64encode(img_bytes).decode()
         content.append({
             "type": "image_url",
             "image_url": f"data:image/jpeg;base64,{b64}",
@@ -292,17 +290,15 @@ MISTRAL_MAX_IMAGES = 8
 
 async def _verify_task(candidates, provider_cfg, progress_tracker, lock, fallback_queue):
     """Process a group of candidates through a single provider."""
-    if not candidates or state.is_full:
+    if not candidates:
         return
 
     if provider_cfg["adapter"] == "mistral":
         # Mistral API accepts max 8 images per call — split into chunks
         for chunk_start in range(0, len(candidates), MISTRAL_MAX_IMAGES):
-            if state.is_full:
-                return
             chunk = candidates[chunk_start:chunk_start + MISTRAL_MAX_IMAGES]
-            prompt, pil_images, max_tokens = _build_verification_prompt(chunk)
-            parsed = await _call_mistral(prompt, pil_images, max_tokens, provider_cfg["name"])
+            prompt, pil_images, resized_images, max_tokens = _build_verification_prompt(chunk)
+            parsed = await _call_mistral(prompt, resized_images, max_tokens, provider_cfg["name"])
 
             if parsed is None:
                 logger.warning(
@@ -328,7 +324,7 @@ async def _verify_task(candidates, provider_cfg, progress_tracker, lock, fallbac
             )
         return
 
-    prompt, pil_images, max_tokens = _build_verification_prompt(candidates)
+    prompt, pil_images, _, max_tokens = _build_verification_prompt(candidates)
 
     if provider_cfg["adapter"] == "gemini":
         parsed = await _call_gemini(prompt, pil_images, max_tokens)
@@ -420,7 +416,7 @@ async def _verify_parallel(candidates, progress_tracker=None):
 
 # ── Public API (backward-compatible signature) ─────────────────────
 
-async def _verify_and_save(candidates: list[tuple], progress_tracker=None) -> list[str]:
+async def _verify_and_save(candidates: list[tuple], progress_tracker=None) -> None:
     """Verify candidates using parallel rotation across providers.
 
     Signature preserved for backward compatibility with agent.py.
@@ -428,7 +424,6 @@ async def _verify_and_save(candidates: list[tuple], progress_tracker=None) -> li
     via SSE as they arrive. Failed items fall back to the next provider.
     """
     await _verify_parallel(candidates, progress_tracker=progress_tracker)
-    return []
 
 
 def _cleanup_pending(url: str) -> None:

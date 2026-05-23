@@ -7,7 +7,7 @@
 - Python 3.10+
 - FastAPI 0.136.x — REST API + SSE
 - Serper API — поиск изображений
-- **Parallel rotation:** Gemini 2.5 Flash + Mistral Large 3 + Ministral 3 14B
+- **Parallel rotation:** Mistral Large 3 + Pixtral Large + Ministral 14B + Ministral 8B
 - httpx — асинхронная загрузка
 - React 19 + Vite 8 + TypeScript 5.9 + Tailwind CSS 4 — фронтенд
 - Framer Motion 12 — анимации
@@ -55,7 +55,7 @@ npm run dev
 | `refseeker/api.py` | FastAPI сервер: REST + SSE эндпоинты |
 | `refseeker/progress.py` | `ProgressTracker` — asyncio-очередь событий для SSE |
 | `refseeker/searcher.py` | Поиск изображений через Serper API |
-| `refseeker/verify.py` | Parallel vision verification: Gemini 2.5 Flash + Mistral models, fallback queue |
+| `refseeker/verify.py` | Parallel vision verification: Mistral models (round-robin), fallback queue |
 | `refseeker/state.py` | Состояние сессии (`CollectionState` dataclass) |
 | `refseeker/config.py` | Константы, логгер, загрузка `image_blacklist` из config.json |
 | `refseeker/image.py` | MIME-детекция, фильтрация URL, full-res resolution, resize для API |
@@ -113,12 +113,12 @@ web/
        │  По мере загрузки каждого изображения:                   │
        │  1. Сохраняется в .pending/ (сразу показывается в UI)    │
        │  2. Добавляется в буфер                                   │
-       │  3. При накоплении 75+ → параллельная верификация:       │
-       │     ├── Gemini 2.5 Flash   → SSE (image_approved/rejected)│
+       │  3. При накоплении 30+ → параллельная верификация:       │
        │     ├── Mistral Large 3    → SSE (image_approved/rejected)│
        │     ├── Pixtral Large      → SSE (image_approved/rejected)│
        │     ├── Ministral 3 14B    → SSE (image_approved/rejected)│
        │     └── Ministral 8B       → SSE (image_approved/rejected)│
+       │     (Gemini 2.5 Flash временно отключён из-за квоты)      │
        │  4. fallback при ошибке провайдера                        │
        │  5. Одобренные → сохранение в references/<query>/         │
        └──────────────────────────────────────────────────────────┘
@@ -131,11 +131,11 @@ web/
 
 | Параметр | Значение | Описание |
 |---|---|---|
-| `BATCH_SIZE` | 15 | макс. изображений в батче на верификацию |
+| `BATCH_SIZE` | 15 | макс. изображений в батче на провайдера |
 | `DOWNLOAD_CONCURRENCY` | 5 | одновременных загрузок |
 | `MIN_IMAGE_DIM` | 300 | мин. разрешение (пикселей) |
 | `RESIZE_DIM` | 768 | макс. размер перед отправкой в модели |
-| `PROVIDER_CONFIG` | 3 провайдера | параллельная очередь: gemini-2.5-flash, mistral-large-2512, ministral-14b-2512 |
+| `PROVIDER_CONFIG` | 4 провайдера | параллельная очередь: mistral-large-2512, pixtral-large-2411, ministral-14b-2512, ministral-8b-2512 |
 
 ## Провайдеры верификации
 
@@ -145,9 +145,11 @@ web/
 
 | Провайдер | Модель | Адаптер |
 |---|---|---|
-| Google | `gemini-2.5-flash` | gemini |
 | Mistral | `mistral-large-2512` (Mistral Large 3) | mistral |
+| Mistral | `pixtral-large-2411` (Pixtral Large) | mistral |
 | Mistral | `ministral-14b-2512` (Ministral 3 14B) | mistral |
+| Mistral | `ministral-8b-2512` | mistral |
+| ~~Google~~ | ~~`gemini-2.5-flash`~~ | ~~gemini (отключён — квота)~~ |
 
 Mistral API принимает изображения как base64. SDK синхронный — вызов
 обёрнут в `asyncio.to_thread()`.
@@ -160,8 +162,8 @@ Mistral API принимает изображения как base64. SDK син�
 
 1. **Пре-фильтр URL** — отбрасываются URL с null-байтами, непохожие на изображения
 2. **Разрешение** — не менее 300×300 пикселей
-3. **Релевантность** — Gemini 2.5 Flash определяет, относится ли изображение к запросу
+3. **Релевантность** — vision-модели определяют, относится ли изображение к запросу
 4. **Качество** — проверка на резкость, водяные знаки, текстовые наложения
 5. **Нежелательный контент** — опционально, `image_blacklist` в `config.json`
 
-Перед отправкой в Gemini изображения ресайзятся до 768px для экономии токенов. Оригиналы сохраняются на диск без изменений.
+Перед отправкой в vision-модели изображения ресайзятся до 768px для экономии токенов. Оригиналы сохраняются на диск без изменений.

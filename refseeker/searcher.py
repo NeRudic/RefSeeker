@@ -6,6 +6,8 @@ from .config import logger
 
 SERPER_URL = "https://google.serper.dev/images"
 
+_SERPER_CLIENT = httpx.Client(timeout=httpx.Timeout(15.0, connect=5.0))
+
 
 def _get_serper_api_key() -> str:
     api_key = os.getenv("SERPER_API_KEY")
@@ -35,10 +37,9 @@ def search_images(query: str, count: int = 100) -> list[str]:
     logger.info("Searching Serper images for: \"%s\" (num=%d)", query, count)
 
     try:
-        with httpx.Client(timeout=httpx.Timeout(15.0, connect=5.0)) as client:
-            resp = client.post(SERPER_URL, json=payload, headers=headers)
-            resp.raise_for_status()
-            data = resp.json()
+        resp = _SERPER_CLIENT.post(SERPER_URL, json=payload, headers=headers)
+        resp.raise_for_status()
+        data = resp.json()
     except httpx.HTTPError as e:
         logger.error("Serper API request failed: %s", e)
         return []
