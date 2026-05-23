@@ -113,7 +113,7 @@ web/
        │  По мере загрузки каждого изображения:                   │
        │  1. Сохраняется в .pending/    │
        │  2. Добавляется в буфер                                   │
-       │  3. При накоплении 8+ → параллельная верификация:       │
+       │  3. При накоплении 32+ → параллельная верификация:       │
        │     ├── Mistral Large 3    → SSE (image_approved/rejected)│
        │     ├── Pixtral Large      → SSE (image_approved/rejected)│
        │     ├── Ministral 3 14B    → SSE (image_approved/rejected)│

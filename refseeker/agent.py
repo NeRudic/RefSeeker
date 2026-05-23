@@ -169,8 +169,9 @@ async def run_agent(query: str, max_images: int = 50, progress_tracker=None, bla
     verify_tasks: list[asyncio.Task] = []
     total_downloaded = 0
 
-    # Flush buffer to verification when we have enough for a minimal batch
-    _VERIFY_BATCH = 8
+    # Flush buffer to verification when we have enough for efficient provider round-robin
+    # 4 providers × 8 images each = 32 total
+    _VERIFY_BATCH = BATCH_SIZE * 2 + 2
 
     async def _flush():
         nonlocal candidates_buffer
