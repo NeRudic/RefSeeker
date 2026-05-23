@@ -15,6 +15,7 @@
 - React 19 + Vite 8 + TypeScript 5.9 + Tailwind CSS 4 — фронтенд
 - Framer Motion 12 — анимации
 - TanStack Query 5 — управление состоянием
+- Recharts 3.8 — графики в админ-дашборде
 
 ## Быстрый старт
 
@@ -103,7 +104,8 @@ web/
 │   │   ├── rate-limit-banner/ # Баннер лимитов
 │   │   ├── pipeline-timeline/ # Визуализация пайплайна
 │   │   ├── image-grid/       # Сетка изображений / коллекций
-│   │   └── lightbox/         # Полноэкранный просмотр
+│   │   ├── lightbox/         # Полноэкранный просмотр
+│   │   └── admin-dashboard/  # Дашборд с графиками (recharts) + поиск по пользователю
 │   ├── shared/
 │   │   ├── ui/               # UI-kit (Button, Input, Card, Badge)
 │   │   ├── lib/              # Утилиты (cn, etc.)
@@ -129,6 +131,8 @@ web/
 | DELETE | `/api/collections/{name}` | Public | Удалить коллекцию |
 | GET | `/api/admin/users` | Admin | Список пользователей |
 | PATCH | `/api/admin/users/{id}/role` | Admin | Смена роли |
+| GET | `/api/admin/usage/summary?from=&to=` | Admin | Общая статистика (запросы/день, пользователи/день, распределение по ролям, коллекции/день) |
+| GET | `/api/admin/usage/user?email=&from=&to=` | Admin | Статистика по конкретному пользователю (или unauthorized, если email пустой) |
 | GET | `/api/health` | Public | Health check |
 
 ## Система ролей и лимитов

@@ -49,3 +49,35 @@ export interface AdminUserListResponse {
   page: number;
   per_page: number;
 }
+
+// ── Usage Dashboard ────────────────────────────────────────────────────
+
+export interface DailyPoint {
+  date: string;
+  count: number;
+}
+
+export interface RoleCount {
+  role: string;
+  count: number;
+}
+
+export interface UsageSummary {
+  total_requests: number;
+  total_users: number;
+  total_collections: number;
+  active_users_today: number;
+  requests_per_day: DailyPoint[];
+  users_per_day: DailyPoint[];
+  role_distribution: RoleCount[];
+  collections_per_day: DailyPoint[];
+}
+
+export interface UserUsage {
+  email: string;
+  role: string;
+  daily_limit: number;
+  created_at: string;
+  total_requests_in_period: number;
+  requests_per_day: DailyPoint[];
+}

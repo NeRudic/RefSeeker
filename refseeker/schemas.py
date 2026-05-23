@@ -1,5 +1,5 @@
 from pydantic import BaseModel, field_validator
-from datetime import datetime
+from datetime import date, datetime
 import uuid
 from typing import Optional
 
@@ -106,3 +106,46 @@ class MeResponse(BaseModel):
     daily_limit: int = 1
     remaining: int = 0
     max_images: int = 50
+
+
+# ── Usage Dashboard ────────────────────────────────────────────────────
+
+class DailyPoint(BaseModel):
+    date: str
+    count: int
+
+
+class RoleCount(BaseModel):
+    role: str
+    count: int
+
+
+class UsageSummaryResponse(BaseModel):
+    total_requests: int
+    total_users: int
+    total_collections: int
+    active_users_today: int
+    requests_per_day: list[DailyPoint]
+    users_per_day: list[DailyPoint]
+    role_distribution: list[RoleCount]
+    collections_per_day: list[DailyPoint]
+
+
+class UserUsageResponse(BaseModel):
+    email: str
+    role: str
+    daily_limit: int
+    created_at: datetime
+    total_requests_in_period: int
+    requests_per_day: list[DailyPoint]
+
+
+class UsageSummaryParams(BaseModel):
+    from_date: Optional[date] = None
+    to_date: Optional[date] = None
+
+
+class UserUsageParams(BaseModel):
+    email: Optional[str] = None
+    from_date: Optional[date] = None
+    to_date: Optional[date] = None

@@ -1,6 +1,8 @@
 import { useState, useEffect } from "react";
 import { useAuth } from "@/app/auth-context";
-import { Shield, Loader2, Check, X } from "lucide-react";
+import { Shield, Loader2, Check, BarChart3, Users as UsersIcon } from "lucide-react";
+import { cn } from "@/shared/lib/cn";
+import { AdminDashboard } from "@/widgets/admin-dashboard/AdminDashboard";
 import type { UserRole, AdminUser } from "@/entities/user";
 
 const BASE = "/api";
@@ -42,8 +44,14 @@ const ROLE_COLORS: Record<UserRole, string> = {
   admin: "bg-red-500/10 text-red-400 border-red-500/20",
 };
 
-export function AdminPage() {
-  const { user } = useAuth();
+const TABS = [
+  { key: "users", label: "Users", icon: UsersIcon },
+  { key: "dashboard", label: "Dashboard", icon: BarChart3 },
+] as const;
+
+type Tab = (typeof TABS)[number]["key"];
+
+function UsersTab() {
   const [users, setUsers] = useState<AdminUser[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -85,24 +93,8 @@ export function AdminPage() {
     }
   };
 
-  if (user?.role !== "admin") {
-    return (
-      <div className="flex min-h-[calc(100vh-3.5rem)] items-center justify-center px-4">
-        <p className="text-neutral-500">Admin access required.</p>
-      </div>
-    );
-  }
-
   return (
-    <div className="mx-auto max-w-6xl px-4 py-8">
-      <div className="flex items-center gap-3 mb-8">
-        <Shield className="h-6 w-6 text-red-400" />
-        <h1 className="text-2xl font-bold text-neutral-100">Admin Panel</h1>
-        <span className="text-sm text-neutral-500">
-          {total} user{total === 1 ? "" : "s"}
-        </span>
-      </div>
-
+    <>
       {error && (
         <div className="mb-6 glass rounded-xl p-4 border border-red-500/20">
           <p className="text-sm text-red-400">{error}</p>
@@ -170,6 +162,53 @@ export function AdminPage() {
           </div>
         </div>
       )}
+    </>
+  );
+}
+
+export function AdminPage() {
+  const { user } = useAuth();
+  const [activeTab, setActiveTab] = useState<Tab>("dashboard");
+
+  if (user?.role !== "admin") {
+    return (
+      <div className="flex min-h-[calc(100vh-3.5rem)] items-center justify-center px-4">
+        <p className="text-neutral-500">Admin access required.</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="mx-auto max-w-6xl px-4 py-8">
+      {/* Header */}
+      <div className="flex items-center justify-between mb-8">
+        <div className="flex items-center gap-3">
+          <Shield className="h-6 w-6 text-red-400" />
+          <h1 className="text-2xl font-bold text-neutral-100">Admin Panel</h1>
+        </div>
+      </div>
+
+      {/* Tabs */}
+      <div className="glass rounded-2xl p-1.5 mb-8 inline-flex">
+        {TABS.map(({ key, label, icon: Icon }) => (
+          <button
+            key={key}
+            onClick={() => setActiveTab(key)}
+            className={cn(
+              "flex items-center gap-2 rounded-xl px-4 py-2 text-xs font-medium transition-all duration-200",
+              activeTab === key
+                ? "bg-accent-500/15 text-accent-400 shadow-sm"
+                : "text-neutral-500 hover:text-neutral-300"
+            )}
+          >
+            <Icon className="h-3.5 w-3.5" />
+            {label}
+          </button>
+        ))}
+      </div>
+
+      {/* Content */}
+      {activeTab === "users" ? <UsersTab /> : <AdminDashboard />}
     </div>
   );
 }
