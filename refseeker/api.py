@@ -391,9 +391,10 @@ async def set_blacklist(body: UpdateBlacklistRequest):
 
 async def _run_pipeline(session_id: str, tracker: ProgressTracker, query: str, max_images: int, user: User | None = None, blacklist: list[str] | None = None):
     """Run the full pipeline and push progress events."""
+    collection_id = uuid.uuid4()
     try:
         tracker.search_started(query=query, max_images=max_images)
-        await run_agent(query, max_images, progress_tracker=tracker, blacklist=blacklist)
+        await run_agent(query, max_images, progress_tracker=tracker, blacklist=blacklist, collection_id=collection_id.hex)
         from .state import state
         tracker.session_complete(metrics={
             "saved": state.saved_count,
@@ -404,22 +405,18 @@ async def _run_pipeline(session_id: str, tracker: ProgressTracker, query: str, m
             "filters": dict(state.filter_stats),
         })
 
-        # Save collection record
+        # Save collection record (using the pre-generated UUID as PK)
         if state.saved_count > 0:
             async with async_session_factory() as db_session:
                 try:
-                    existing = await db_session.execute(
-                        select(Collection).where(Collection.folder_name == state.query_folder)
-                    )
-                    if not existing.scalar_one_or_none():
-                        collection = Collection(
-                            user_id=user.id if user else None,
-                            folder_name=state.query_folder,
-                            query=state.query_name,
-                        )
-                        db_session.add(collection)
-                        await db_session.commit()
-                        logger.info("Collection saved: %s (user=%s)", state.query_folder, user.id if user else "anonymous")
+                    db_session.add(Collection(
+                        id=collection_id,
+                        user_id=user.id if user else None,
+                        folder_name=state.query_folder,
+                        query=state.query_name,
+                    ))
+                    await db_session.commit()
+                    logger.info("Collection saved: %s (user=%s)", state.query_folder, user.id if user else "anonymous")
                 except Exception as e:
                     await db_session.rollback()
                     logger.warning("Failed to save collection record: %s", e)

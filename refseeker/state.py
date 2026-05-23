@@ -32,9 +32,10 @@ class CollectionState:
     gpt_calls: int = 0
     download_attempts: int = 0
 
-    def reset(self, query: str, max_images: int = 50, blacklist: list[str] | None = None) -> None:
+    def reset(self, query: str, max_images: int = 50, blacklist: list[str] | None = None, collection_id: str | None = None) -> None:
         self.query_name = query
-        self.query_folder = _sanitize_folder_name(query)
+        base_folder = _sanitize_folder_name(query)
+        self.query_folder = f"{base_folder}_{collection_id[:8]}" if collection_id else base_folder
         self.output_dir = os.path.join(".", "references", self.query_folder)
         self.saved_count = 0
         self.max_images = max_images
