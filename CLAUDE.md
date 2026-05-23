@@ -2,7 +2,7 @@
 
 ## Rules
 
-1. **Keep AGENT.md accurate** — after any change to the codebase structure, config, pipeline, or dependencies, update AGENT.md to reflect the current state.
+1. **Keep AGENT.md, README.md and CLAUDE.md accurate** — after any change to the codebase structure, config, pipeline, or dependencies, update AGENT.md, README.md and CLAUDE.md to reflect the current state.
 
 2. **Always commit after changes** — after completing any task that modifies files, create a commit with a clear message describing what was changed and why.
 
