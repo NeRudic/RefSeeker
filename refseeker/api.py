@@ -151,15 +151,6 @@ async def get_collection_image(name: str, filename: str):
     return FileResponse(str(file_path))
 
 
-@app.get("/api/pending/{collection}/{filename}")
-async def get_pending_image(collection: str, filename: str):
-    """Serve a pending (not yet verified) image from a collection's .pending/ directory."""
-    file_path = REFERENCES_DIR / collection / ".pending" / filename
-    if not file_path.exists() or not file_path.is_file():
-        raise HTTPException(status_code=404, detail="Pending image not found")
-    return FileResponse(str(file_path))
-
-
 @app.delete("/api/collections/{name}")
 async def delete_collection(name: str):
     """Delete an entire collection."""

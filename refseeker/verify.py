@@ -288,13 +288,14 @@ async def _process_evaluations(evaluations, candidates, progress_tracker, lock):
 MISTRAL_MAX_IMAGES = 8
 
 
-async def _verify_task(candidates, provider_cfg, progress_tracker, lock, fallback_queue):
-    """Process a group of candidates through a single provider."""
+async def _verify_task(candidates, provider_cfg, progress_tracker, lock, fallback_queue) -> bool:
+    """Process a group of candidates through a single provider.
+    Returns True if all chunks were processed successfully, False otherwise.
+    """
     if not candidates:
-        return
+        return True
 
     if provider_cfg["adapter"] == "mistral":
-        # Mistral API accepts max 8 images per call — split into chunks
         for chunk_start in range(0, len(candidates), MISTRAL_MAX_IMAGES):
             chunk = candidates[chunk_start:chunk_start + MISTRAL_MAX_IMAGES]
             prompt, pil_images, resized_images, max_tokens = _build_verification_prompt(chunk)
@@ -306,7 +307,7 @@ async def _verify_task(candidates, provider_cfg, progress_tracker, lock, fallbac
                     provider_cfg["name"], len(chunk),
                 )
                 fallback_queue.extend(candidates[chunk_start:])
-                return
+                return False
 
             evaluations = parsed.get("evaluations", parsed if isinstance(parsed, list) else [])
             if not evaluations:
@@ -315,14 +316,17 @@ async def _verify_task(candidates, provider_cfg, progress_tracker, lock, fallbac
                     provider_cfg["name"], len(chunk),
                 )
                 fallback_queue.extend(candidates[chunk_start:])
-                return
+                return False
+
+            if state.is_full:
+                return True
 
             await _process_evaluations(evaluations, chunk, progress_tracker, lock)
             logger.info(
                 "Provider %s chunk %d evaluated: %d images",
                 provider_cfg["name"], chunk_start // MISTRAL_MAX_IMAGES + 1, len(chunk),
             )
-        return
+        return True
 
     prompt, pil_images, _, max_tokens = _build_verification_prompt(candidates)
 
@@ -331,21 +335,23 @@ async def _verify_task(candidates, provider_cfg, progress_tracker, lock, fallbac
     else:
         logger.warning("Unknown adapter %s — queuing %d images for fallback", provider_cfg["adapter"], len(candidates))
         fallback_queue.extend(candidates)
-        return
+        return False
 
     if parsed is None:
         logger.warning("Provider %s returned no result — queuing %d images for fallback", provider_cfg["name"], len(candidates))
         fallback_queue.extend(candidates)
-        return
+        return False
 
     evaluations = parsed.get("evaluations", parsed if isinstance(parsed, list) else [])
     if not evaluations:
         logger.warning("Provider %s returned empty evaluations — queuing %d images for fallback", provider_cfg["name"], len(candidates))
         fallback_queue.extend(candidates)
-        return
+        return False
 
     logger.info("Provider %s returned %d evaluations", provider_cfg["name"], len(evaluations))
-    await _process_evaluations(evaluations, candidates, progress_tracker, lock)
+    if not state.is_full:
+        await _process_evaluations(evaluations, candidates, progress_tracker, lock)
+    return True
 
 
 # ── Parallel orchestrator ──────────────────────────────────────────
@@ -355,6 +361,7 @@ async def _verify_parallel(candidates, progress_tracker=None):
 
     Each provider processes its share independently, streaming results
     via SSE as they become available. Failed items go to fallback.
+    Providers that fail in phase 1 are excluded from phase 2 fallback.
     """
     if not candidates:
         return
@@ -384,8 +391,9 @@ async def _verify_parallel(candidates, progress_tracker=None):
 
     lock = asyncio.Lock()
     fallback_queue = []
+    failed_providers: set[str] = set()
 
-    # Fire parallel tasks — each provider processes its group immediately
+    # Phase 1: parallel verification — each provider processes its group
     tasks = []
     for i, (group, cfg) in enumerate(zip(groups, active_providers)):
         if group:
@@ -395,23 +403,56 @@ async def _verify_parallel(candidates, progress_tracker=None):
                 )
             tasks.append(_verify_task(group, cfg, progress_tracker, lock, fallback_queue))
 
-    await asyncio.gather(*tasks)
+    results = await asyncio.gather(*tasks, return_exceptions=True)
 
     for i, (group, cfg) in enumerate(zip(groups, active_providers)):
+        result = results[i] if i < len(results) else None
+        if isinstance(result, Exception) or result is False:
+            failed_providers.add(cfg["name"])
         if group and progress_tracker:
             progress_tracker.verification_batch_complete(
                 batch_num=i + 1, total_batches=len(active_providers),
             )
 
-    # Fallback: redistribute failed items to surviving providers
+    # Phase 2: fallback — only surviving providers, parallel
     if fallback_queue and not state.is_full:
-        logger.info("Fallback: reprocessing %d images through remaining providers", len(fallback_queue))
-        for cfg in active_providers:
-            if not fallback_queue or state.is_full:
-                break
-            batch = list(fallback_queue)
-            fallback_queue.clear()
-            await _verify_task(batch, cfg, progress_tracker, lock, fallback_queue)
+        surviving = [cfg for cfg in active_providers if cfg["name"] not in failed_providers]
+
+        if not surviving:
+            logger.warning(
+                "Fallback skipped: all %d providers failed, %d images dropped",
+                len(active_providers), len(fallback_queue),
+            )
+            return
+
+        logger.info(
+            "Fallback: %d images → %d surviving providers (%s)",
+            len(fallback_queue), len(surviving),
+            ", ".join(p["name"] for p in surviving),
+        )
+
+        groups = [[] for _ in surviving]
+        for i, cand in enumerate(fallback_queue):
+            groups[i % len(groups)].append(cand)
+        fallback_queue.clear()
+
+        tasks = [
+            _verify_task(group, cfg, progress_tracker, lock, fallback_queue)
+            for group, cfg in zip(groups, surviving) if group
+        ]
+        await asyncio.gather(*tasks, return_exceptions=True)
+
+        if fallback_queue:
+            logger.warning(
+                "Fallback exhausted: %d images could not be verified by any provider",
+                len(fallback_queue),
+            )
+
+
+    # Cleanup: remove pending files for any images left in fallback_queue
+    if fallback_queue:
+        for url, _, _, _, _ in fallback_queue:
+            _cleanup_pending(url)
 
 
 # ── Public API (backward-compatible signature) ─────────────────────

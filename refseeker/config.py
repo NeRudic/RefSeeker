@@ -58,7 +58,7 @@ PROVIDER_CONFIG = [
 ]
 
 # ── HTTP ─────────────────────────────────────────────────────────────
-DOWNLOAD_CONCURRENCY = 5
+DOWNLOAD_CONCURRENCY = 15
 URLLIB_TIMEOUT = 10
 JPEG_QUALITY = 85
 LOG_FILE = "refseeker.log"

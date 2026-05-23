@@ -46,9 +46,6 @@ class ProgressTracker:
     def download_progress(self, current: int, total: int, url: str, status: str) -> None:
         self.push("download.progress", current=current, total=total, url=url, status=status)
 
-    def download_image_downloaded(self, url: str, pending_path: str, collection: str, index: int) -> None:
-        self.push("download.image_downloaded", url=url, pending_path=pending_path, collection=collection, index=index)
-
     def download_complete(self, downloaded: int) -> None:
         self.push("download.complete", downloaded=downloaded)
 

@@ -83,7 +83,7 @@ async def _download_one(url: str, sem: asyncio.Semaphore, progress_tracker=None)
 
         state.downloaded_urls.add(url)
 
-        # Save to pending directory for immediate UI display
+        # Save to pending directory for verification pipeline
         pending_ext = _mime_to_ext(mime_type)
         url_hash = hashlib.md5(url.encode()).hexdigest()[:8]
         pending_filename = f"img_{url_hash}.{pending_ext}"
@@ -95,12 +95,6 @@ async def _download_one(url: str, sem: asyncio.Semaphore, progress_tracker=None)
         state.pending_files[url] = pending_filename
 
         if progress_tracker:
-            progress_tracker.download_image_downloaded(
-                url=url,
-                pending_path=f".pending/{pending_filename}",
-                collection=state.query_folder,
-                index=state.download_attempts,
-            )
             progress_tracker.download_progress(
                 current=state.download_attempts,
                 total=len(state.downloaded_urls),
@@ -175,8 +169,8 @@ async def run_agent(query: str, max_images: int = 50, progress_tracker=None, bla
     verify_tasks: list[asyncio.Task] = []
     total_downloaded = 0
 
-    # Flush buffer to verification when we have enough for efficient provider round-robin
-    _VERIFY_BATCH = BATCH_SIZE * 2
+    # Flush buffer to verification when we have enough for a minimal batch
+    _VERIFY_BATCH = 8
 
     async def _flush():
         nonlocal candidates_buffer
