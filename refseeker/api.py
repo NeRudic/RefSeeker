@@ -16,8 +16,8 @@ from .admin import router as admin_router
 from .agent import run_agent
 from .auth import create_access_token, create_refresh_token, decode_token, get_client_ip, get_current_user, get_optional_user, hash_password, verify_password
 from .config import IMAGE_BLACKLIST, logger, update_image_blacklist
-from .database import engine, get_db
-from .models import User
+from .database import async_session_factory, engine, get_db
+from .models import Collection, User
 from .progress import ProgressTracker
 from .rate_limit import check_and_increment_rate_limit, get_daily_limit, get_usage_today
 from .schemas import (
@@ -90,7 +90,7 @@ async def create_session(
         user.email if user else "anonymous", remaining,
     )
 
-    asyncio.create_task(_run_pipeline(session_id, tracker, body.query, body.max_images, body.blacklist))
+    asyncio.create_task(_run_pipeline(session_id, tracker, body.query, body.max_images, user, body.blacklist))
 
     return CreateSessionResponse(session_id=session_id)
 
@@ -140,14 +140,30 @@ async def get_session(session_id: str):
 
 
 @app.get("/api/collections")
-async def list_collections():
-    """List all saved collections (folders under references/)."""
+async def list_collections(
+    user: User | None = Depends(get_optional_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """List collections visible to the current user."""
     if not REFERENCES_DIR.exists():
         return {"collections": []}
 
+    # Admin sees all; authenticated users see their own; anonymous sees nothing
+    if user and user.role == "admin":
+        result = await db.execute(select(Collection))
+    elif user:
+        result = await db.execute(
+            select(Collection).where(Collection.user_id == user.id)
+        )
+    else:
+        return {"collections": []}
+
+    db_collections = result.scalars().all()
+    folder_map = {c.folder_name: c for c in db_collections}
+
     collections = []
     for folder in sorted(REFERENCES_DIR.iterdir()):
-        if not folder.is_dir():
+        if not folder.is_dir() or folder.name not in folder_map:
             continue
         images = sorted(folder.iterdir()) if folder.exists() else []
         collections.append({
@@ -161,10 +177,25 @@ async def list_collections():
 
 
 @app.get("/api/collections/{name}")
-async def get_collection(name: str):
+async def get_collection(
+    name: str,
+    user: User | None = Depends(get_optional_user),
+    db: AsyncSession = Depends(get_db),
+):
     """List images in a collection."""
     folder = REFERENCES_DIR / name
     if not folder.exists() or not folder.is_dir():
+        raise HTTPException(status_code=404, detail="Collection not found")
+
+    # Check access
+    result = await db.execute(
+        select(Collection).where(Collection.folder_name == name)
+    )
+    db_collection = result.scalar_one_or_none()
+    if not db_collection:
+        raise HTTPException(status_code=404, detail="Collection not found")
+
+    if not _can_access_collection(db_collection, user):
         raise HTTPException(status_code=404, detail="Collection not found")
 
     images = []
@@ -189,13 +220,26 @@ async def get_collection_image(name: str, filename: str):
 
 
 @app.delete("/api/collections/{name}")
-async def delete_collection(name: str):
-    """Delete an entire collection."""
+async def delete_collection(
+    name: str,
+    user: User | None = Depends(get_optional_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Delete an entire collection (owner or admin only)."""
     folder = REFERENCES_DIR / name
     if not folder.exists() or not folder.is_dir():
         raise HTTPException(status_code=404, detail="Collection not found")
 
+    # Check access
+    result = await db.execute(
+        select(Collection).where(Collection.folder_name == name)
+    )
+    db_collection = result.scalar_one_or_none()
+    if not db_collection or not _can_access_collection(db_collection, user):
+        raise HTTPException(status_code=404, detail="Collection not found")
+
     import shutil
+    await db.delete(db_collection)
     shutil.rmtree(folder)
     logger.info("Deleted collection: %s", name)
     return {"deleted": name}
@@ -345,7 +389,7 @@ async def set_blacklist(body: UpdateBlacklistRequest):
 
 # ── Background pipeline runner ──────────────────────────────────────────────
 
-async def _run_pipeline(session_id: str, tracker: ProgressTracker, query: str, max_images: int, blacklist: list[str] | None = None):
+async def _run_pipeline(session_id: str, tracker: ProgressTracker, query: str, max_images: int, user: User | None = None, blacklist: list[str] | None = None):
     """Run the full pipeline and push progress events."""
     try:
         tracker.search_started(query=query, max_images=max_images)
@@ -359,6 +403,27 @@ async def _run_pipeline(session_id: str, tracker: ProgressTracker, query: str, m
             "elapsed": state.elapsed,
             "filters": dict(state.filter_stats),
         })
+
+        # Save collection record
+        if state.saved_count > 0:
+            async with async_session_factory() as db_session:
+                try:
+                    existing = await db_session.execute(
+                        select(Collection).where(Collection.folder_name == state.query_folder)
+                    )
+                    if not existing.scalar_one_or_none():
+                        collection = Collection(
+                            user_id=user.id if user else None,
+                            folder_name=state.query_folder,
+                            query=state.query_name,
+                        )
+                        db_session.add(collection)
+                        await db_session.commit()
+                        logger.info("Collection saved: %s (user=%s)", state.query_folder, user.id if user else "anonymous")
+                except Exception as e:
+                    await db_session.rollback()
+                    logger.warning("Failed to save collection record: %s", e)
+
     except Exception as e:
         logger.exception("Session %s failed", session_id)
         tracker.session_error(message=str(e))
@@ -372,7 +437,7 @@ async def _run_pipeline(session_id: str, tracker: ProgressTracker, query: str, m
                 shutil.rmtree(pending_dir, ignore_errors=True)
 
 
-# ── Entry point ─────────────────────────────────────────────────────────────
+# ── Helpers ─────────────────────────────────────────────────────────────────
 
 def _get_thumbnail(folder: Path, images: list[Path]) -> str | None:
     """Get the first image as a thumbnail URL for the collection."""
@@ -380,3 +445,10 @@ def _get_thumbnail(folder: Path, images: list[Path]) -> str | None:
         if img.is_file():
             return f"/api/collections/{folder.name}/images/{img.name}"
     return None
+
+
+def _can_access_collection(collection: Collection, user: User | None) -> bool:
+    """Check if a user can access a collection (owner or admin)."""
+    if user and user.role == "admin":
+        return True
+    return bool(user and collection.user_id == user.id)

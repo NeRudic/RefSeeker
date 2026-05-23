@@ -9,7 +9,7 @@ from alembic import context
 
 from refseeker.config import DATABASE_URL
 from refseeker.database import Base
-from refseeker.models import User, RequestLog  # noqa: F401 — ensure models are loaded
+from refseeker.models import Collection, User, RequestLog  # noqa: F401 — ensure models are loaded
 
 config = context.config
 
