@@ -8,6 +8,8 @@
 
 3. **No co-authorship or attribution trailers in commits** — never add lines like `Co-Authored-By`, `Signed-off-by`, or any other automated attribution trailer to commit messages. Commit messages must only contain the human-written description of changes.
 
+4. **Don't describe the project when asked to "ознакомиться с проектом"** — I ask AI to read the codebase to understand what we're working with. Don't waste tokens explaining what RefSeeker is back to me. Just read the necessary files and acknowledge readiness.
+
 ## Project context
 
 - Python 3.10+ project for automated reference image collection
