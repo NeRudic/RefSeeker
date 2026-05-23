@@ -1,16 +1,35 @@
 import asyncio
 import os
 import uuid
+from contextlib import asynccontextmanager
+from datetime import datetime, timezone
 from pathlib import Path
 
-from fastapi import FastAPI, HTTPException
+from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, StreamingResponse
 from pydantic import BaseModel
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
+from .admin import router as admin_router
 from .agent import run_agent
+from .auth import create_access_token, create_refresh_token, decode_token, get_client_ip, get_current_user, get_optional_user, hash_password, verify_password
 from .config import IMAGE_BLACKLIST, logger, update_image_blacklist
+from .database import engine, get_db
+from .models import User
 from .progress import ProgressTracker
+from .rate_limit import check_and_increment_rate_limit, get_daily_limit, get_usage_today
+from .schemas import (
+    LoginRequest,
+    LoginResponse,
+    MeResponse,
+    RefreshRequest,
+    RegisterRequest,
+    RegisterResponse,
+    TokenResponse,
+    UserResponse,
+)
 
 # ── Session store ───────────────────────────────────────────────────────────
 
@@ -19,7 +38,13 @@ REFERENCES_DIR = Path("references")
 
 # ── FastAPI app ─────────────────────────────────────────────────────────────
 
-app = FastAPI(title="RefSeeker API", version="1.0.0")
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    yield
+    await engine.dispose()
+
+
+app = FastAPI(title="RefSeeker API", version="1.0.0", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
@@ -45,13 +70,25 @@ class CreateSessionResponse(BaseModel):
 # ── API endpoints ───────────────────────────────────────────────────────────
 
 @app.post("/api/sessions", response_model=CreateSessionResponse)
-async def create_session(body: CreateSessionRequest):
-    """Start a new image search session."""
+async def create_session(
+    body: CreateSessionRequest,
+    request: Request,
+    user: User | None = Depends(get_optional_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Start a new image search session (rate-limited)."""
+    ip = get_client_ip(request)
+    remaining = await check_and_increment_rate_limit(user, ip, db)
+
     session_id = uuid.uuid4().hex
     tracker = ProgressTracker(session_id)
     _sessions[session_id] = tracker
 
-    logger.info("Session %s started: query=%s max=%d", session_id, body.query, body.max_images)
+    logger.info(
+        "Session %s started: query=%s max=%d user=%s remaining=%d",
+        session_id, body.query, body.max_images,
+        user.email if user else "anonymous", remaining,
+    )
 
     asyncio.create_task(_run_pipeline(session_id, tracker, body.query, body.max_images, body.blacklist))
 
@@ -167,6 +204,122 @@ async def delete_collection(name: str):
 @app.get("/api/health")
 async def health():
     return {"status": "ok"}
+
+
+# ── Auth endpoints ──────────────────────────────────────────────────────────
+
+@app.post("/api/auth/register", response_model=RegisterResponse)
+async def register(body: RegisterRequest, db: AsyncSession = Depends(get_db)):
+    result = await db.execute(select(User).where(User.email == body.email))
+    if result.scalar_one_or_none():
+        raise HTTPException(status_code=400, detail="Email already registered")
+
+    user = User(
+        email=body.email,
+        password_hash=hash_password(body.password),
+        role="free",
+    )
+    db.add(user)
+    await db.commit()
+    await db.refresh(user)
+
+    ip = "0.0.0.0"
+    usage = await get_usage_today(user, ip, db)
+    return RegisterResponse(
+        user=UserResponse(
+            id=user.id,
+            email=user.email,
+            role=user.role,
+            created_at=user.created_at,
+            usage_today=usage,
+            daily_limit=get_daily_limit(user),
+        ),
+        access_token=create_access_token(user),
+        refresh_token=create_refresh_token(user),
+    )
+
+
+@app.post("/api/auth/login", response_model=LoginResponse)
+async def login(body: LoginRequest, db: AsyncSession = Depends(get_db)):
+    result = await db.execute(select(User).where(User.email == body.email))
+    user = result.scalar_one_or_none()
+    if not user or not verify_password(body.password, user.password_hash):
+        raise HTTPException(status_code=401, detail="Invalid email or password")
+
+    ip = "0.0.0.0"
+    usage = await get_usage_today(user, ip, db)
+    return LoginResponse(
+        user=UserResponse(
+            id=user.id,
+            email=user.email,
+            role=user.role,
+            created_at=user.created_at,
+            usage_today=usage,
+            daily_limit=get_daily_limit(user),
+        ),
+        access_token=create_access_token(user),
+        refresh_token=create_refresh_token(user),
+    )
+
+
+@app.post("/api/auth/refresh", response_model=TokenResponse)
+async def refresh(body: RefreshRequest, db: AsyncSession = Depends(get_db)):
+    payload = decode_token(body.refresh_token)
+    if payload is None or payload.get("type") != "refresh":
+        raise HTTPException(status_code=401, detail="Invalid or expired refresh token")
+
+    user_id = payload.get("sub")
+    if user_id is None:
+        raise HTTPException(status_code=401, detail="Invalid token payload")
+
+    result = await db.execute(select(User).where(User.id == uuid.UUID(user_id)))
+    user = result.scalar_one_or_none()
+    if user is None:
+        raise HTTPException(status_code=401, detail="User not found")
+
+    return TokenResponse(
+        access_token=create_access_token(user),
+        refresh_token=create_refresh_token(user),
+    )
+
+
+@app.get("/api/auth/me")
+async def me(
+    request: Request,
+    user: User | None = Depends(get_optional_user),
+    db: AsyncSession = Depends(get_db),
+):
+    ip = get_client_ip(request)
+    if user is None:
+        return MeResponse(
+            authenticated=False,
+            usage_today=0,
+            daily_limit=1,
+            remaining=1,
+        )
+
+    usage = await get_usage_today(user, ip, db)
+    limit = get_daily_limit(user)
+    remaining = max(0, limit - usage) if limit != -1 else 999999
+    return MeResponse(
+        authenticated=True,
+        user=UserResponse(
+            id=user.id,
+            email=user.email,
+            role=user.role,
+            created_at=user.created_at,
+            usage_today=usage,
+            daily_limit=limit,
+        ),
+        usage_today=usage,
+        daily_limit=limit,
+        remaining=remaining,
+    )
+
+
+# ── Admin router ────────────────────────────────────────────────────────────
+
+app.include_router(admin_router)
 
 
 # ── Settings ─────────────────────────────────────────────────────────────────

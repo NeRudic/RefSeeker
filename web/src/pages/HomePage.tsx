@@ -1,4 +1,5 @@
 import { SearchForm } from "@/widgets/search-form/search-form";
+import { RateLimitBanner } from "@/widgets/rate-limit-banner/rate-limit-banner";
 import { Hexagon } from "lucide-react";
 
 export function HomePage() {
@@ -6,6 +7,8 @@ export function HomePage() {
     <div className="flex min-h-[calc(100vh-3.5rem)] flex-col items-center justify-center px-4">
       {/* Background grid */}
       <div className="fixed inset-0 bg-grid pointer-events-none" />
+
+      <RateLimitBanner />
 
       {/* Hero */}
       <div className="relative z-10 w-full max-w-3xl text-center mb-12 animate-slide-up">

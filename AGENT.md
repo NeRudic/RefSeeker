@@ -6,14 +6,27 @@
 
 - Python 3.10+
 - FastAPI 0.136.x — REST API + SSE
+- PostgreSQL + SQLAlchemy async + asyncpg — база данных
+- Alembic — миграции БД
 - Serper API — поиск изображений
 - **Parallel rotation:** Mistral Large 3 + Pixtral Large + Ministral 14B + Ministral 8B
+- JWT + bcrypt — аутентификация
 - httpx — асинхронная загрузка
 - React 19 + Vite 8 + TypeScript 5.9 + Tailwind CSS 4 — фронтенд
 - Framer Motion 12 — анимации
 - TanStack Query 5 — управление состоянием
 
 ## Быстрый старт
+
+### База данных
+
+```bash
+# Создать БД PostgreSQL
+createdb refseeker
+
+# Применить миграции
+.venv/Scripts/python -m alembic upgrade head
+```
 
 ### Бэкенд (API сервер)
 
@@ -52,12 +65,18 @@ npm run dev
 | `main.py` | Точка входа (CLI), ввод запроса, event loop |
 | `run_api.py` | Запуск FastAPI сервера |
 | `refseeker/agent.py` | `run_agent()` — оркестрация всего пайплайна |
-| `refseeker/api.py` | FastAPI сервер: REST + SSE эндпоинты |
+| `refseeker/api.py` | FastAPI сервер: REST + SSE + auth + admin эндпоинты |
+| `refseeker/auth.py` | Password hashing (bcrypt), JWT create/decode, FastAPI deps |
+| `refseeker/schemas.py` | Pydantic модели для auth/admin/rate-limit |
+| `refseeker/models.py` | SQLAlchemy ORM модели: User, RequestLog |
+| `refseeker/database.py` | Async engine, session factory, Base |
+| `refseeker/rate_limit.py` | Ролевые лимиты, атомарный upsert, 429 |
+| `refseeker/admin.py` | Админ-роутер: список пользователей, смена роли |
 | `refseeker/progress.py` | `ProgressTracker` — asyncio-очередь событий для SSE |
 | `refseeker/searcher.py` | Поиск изображений через Serper API |
 | `refseeker/verify.py` | Parallel vision verification: Mistral models (round-robin), fallback queue |
 | `refseeker/state.py` | Состояние сессии (`CollectionState` dataclass) |
-| `refseeker/config.py` | Константы, логгер, загрузка `image_blacklist` из config.json |
+| `refseeker/config.py` | Константы, логгер, загрузка image_blacklist из config.json |
 | `refseeker/image.py` | MIME-детекция, фильтрация URL, full-res resolution, resize для API |
 
 ### Фронтенд (`web/`)
@@ -68,37 +87,61 @@ web/
 │   ├── main.tsx              # Точка входа
 │   ├── index.css             # Tailwind + глобальные стили
 │   ├── app/
-│   │   └── App.tsx           # Провайдеры (QueryClient, Router), роутинг
+│   │   ├── App.tsx           # Провайдеры (QueryClient, Auth, Router), роутинг
+│   │   └── auth-context.tsx  # AuthProvider + useAuth hook
 │   ├── pages/
-│   │   ├── HomePage.tsx      # Поисковый экран с премиальным UI
+│   │   ├── HomePage.tsx      # Поисковый экран + rate limit banner
+│   │   ├── LoginPage.tsx     # Вход
+│   │   ├── RegisterPage.tsx  # Регистрация
 │   │   ├── SearchPage.tsx    # Результаты: real-time пайплайн + галерея
 │   │   ├── GalleryPage.tsx   # Список коллекций
-│   │   └── CollectionPage.tsx # Детальный просмотр коллекции
+│   │   ├── CollectionPage.tsx # Детальный просмотр коллекции
+│   │   └── AdminPage.tsx     # Управление пользователями (admin only)
 │   ├── widgets/
-│   │   ├── navbar/           # Навигация
-│   │   ├── search-form/      # Форма поиска
+│   │   ├── navbar/           # Навигация + UserMenu
+│   │   ├── search-form/      # Форма поиска (с rate limit handling)
+│   │   ├── rate-limit-banner/ # Баннер лимитов
 │   │   ├── pipeline-timeline/ # Визуализация пайплайна
 │   │   ├── image-grid/       # Сетка изображений / коллекций
 │   │   └── lightbox/         # Полноэкранный просмотр
 │   ├── shared/
 │   │   ├── ui/               # UI-kit (Button, Input, Card, Badge)
 │   │   ├── lib/              # Утилиты (cn, etc.)
-│   │   └── api/              # API-клиент + типы
-│   └── entities/             # Типы предметной области
+│   │   └── api/              # API-клиент + auth + типы
+│   └── entities/
+│       └── user.ts           # Типы пользователя
 ```
 
 ## API Endpoints
 
-| Метод | Путь | Описание |
-|---|---|---|
-| POST | `/api/sessions` | Создать сессию поиска |
-| GET | `/api/sessions/{id}/stream` | SSE-поток прогресса |
-| GET | `/api/sessions/{id}` | Состояние сессии |
-| GET | `/api/collections` | Список коллекций |
-| GET | `/api/collections/{name}` | Изображения коллекции |
-| GET | `/api/collections/{name}/images/{file}` | Файл изображения |
-| DELETE | `/api/collections/{name}` | Удалить коллекцию |
-| GET | `/api/health` | Health check |
+| Метод | Путь | Auth | Описание |
+|---|---|---|---|
+| POST | `/api/auth/register` | Public | Регистрация |
+| POST | `/api/auth/login` | Public | Вход |
+| POST | `/api/auth/refresh` | Public | Обновление токенов |
+| GET | `/api/auth/me` | Optional | Текущий пользователь + usage |
+| POST | `/api/sessions` | Optional | Создать сессию поиска (rate-limited) |
+| GET | `/api/sessions/{id}/stream` | Public | SSE-поток прогресса |
+| GET | `/api/sessions/{id}` | Public | Состояние сессии |
+| GET | `/api/collections` | Public | Список коллекций |
+| GET | `/api/collections/{name}` | Public | Изображения коллекции |
+| GET | `/api/collections/{name}/images/{file}` | Public | Файл изображения |
+| DELETE | `/api/collections/{name}` | Public | Удалить коллекцию |
+| GET | `/api/admin/users` | Admin | Список пользователей |
+| PATCH | `/api/admin/users/{id}/role` | Admin | Смена роли |
+| GET | `/api/health` | Public | Health check |
+
+## Система ролей и лимитов
+
+| Роль | Лимит/день |
+|---|---|
+| Неаутентифицированный | 1 |
+| free | 2 |
+| pro | 100 |
+| premium | 1100 |
+| admin | ∞ |
+
+Лимиты сбрасываются в UTC midnight. Атомарный upsert через PostgreSQL `INSERT ... ON CONFLICT`. JWT access token живет 15 мин, refresh — 7 дней.
 
 ## Пайплайн
 
@@ -111,7 +154,7 @@ web/
        │  Конвейер: скачивание (15 concurrent, httpx) + верификация│
        │                                                          │
        │  По мере загрузки каждого изображения:                   │
-       │  1. Сохраняется в .pending/    │
+       │  1. Сохраняется в .pending/                              │
        │  2. Добавляется в буфер                                   │
        │  3. При накоплении 32+ → параллельная верификация:       │
        │     ├── Mistral Large 3    → SSE (image_approved/rejected)│
@@ -119,7 +162,7 @@ web/
        │     ├── Ministral 3 14B    → SSE (image_approved/rejected)│
        │     └── Ministral 8B       → SSE (image_approved/rejected)│
        │     (Gemini 2.5 Flash временно отключён из-за квоты)      │
-       │  4. Fallback: выжившие провайдеры (упавшие исключаются)                        │
+       │  4. Fallback: выжившие провайдеры (упавшие исключаются)   │
        │  5. Одобренные → сохранение в references/<query>/         │
        └──────────────────────────────────────────────────────────┘
 ```
@@ -135,7 +178,9 @@ web/
 | `DOWNLOAD_CONCURRENCY` | 15 | одновременных загрузок |
 | `MIN_IMAGE_DIM` | 300 | мин. разрешение (пикселей) |
 | `RESIZE_DIM` | 768 | макс. размер перед отправкой в модели |
-| `PROVIDER_CONFIG` | 4 провайдера | параллельная очередь: mistral-large-2512, pixtral-large-2411, ministral-14b-2512, ministral-8b-2512 |
+| `PROVIDER_CONFIG` | 4 провайдера | параллельная очередь |
+| `ACCESS_TOKEN_EXPIRE_MINUTES` | 15 | время жизни JWT access token |
+| `REFRESH_TOKEN_EXPIRE_DAYS` | 7 | время жизни refresh token |
 
 ## Провайдеры верификации
 
@@ -175,3 +220,16 @@ Mistral API принимает изображения как base64. SDK син�
 5. **Нежелательный контент** — опционально, `image_blacklist` в `config.json`
 
 Перед отправкой в vision-модели изображения ресайзятся до 768px для экономии токенов. Оригиналы сохраняются на диск без изменений.
+
+## Миграции БД
+
+```bash
+# Создать новую миграцию
+.venv/Scripts/python -m alembic revision --autogenerate -m "description"
+
+# Применить
+.venv/Scripts/python -m alembic upgrade head
+
+# Откатить
+.venv/Scripts/python -m alembic downgrade -1
+```

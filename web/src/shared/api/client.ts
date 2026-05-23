@@ -45,25 +45,111 @@ export interface PipelineEvent {
   timestamp: number;
 }
 
+export interface BlacklistResponse {
+  items: string[];
+}
+
+export class ApiError extends Error {
+  status: number;
+  rateLimit?: { limit: number; used: number; remaining: number; reset_at: string };
+
+  constructor(message: string, status: number, rateLimit?: ApiError["rateLimit"]) {
+    super(message);
+    this.name = "ApiError";
+    this.status = status;
+    this.rateLimit = rateLimit;
+  }
+}
+
+// ── Auth-aware fetch wrapper ────────────────────────────────────────────
+
+let _refreshPromise: Promise<boolean> | null = null;
+
+async function apiFetch(path: string, options: RequestInit = {}): Promise<Response> {
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+    ...(options.headers as Record<string, string>),
+  };
+
+  const token = localStorage.getItem("access_token");
+  if (token) {
+    headers["Authorization"] = `Bearer ${token}`;
+  }
+
+  let res = await fetch(`${BASE}${path}`, { ...options, headers });
+
+  // On 401, attempt token refresh
+  if (res.status === 401 && token) {
+    if (!_refreshPromise) {
+      _refreshPromise = _attemptRefresh();
+    }
+    const refreshed = await _refreshPromise;
+    _refreshPromise = null;
+
+    if (refreshed) {
+      const newToken = localStorage.getItem("access_token");
+      headers["Authorization"] = `Bearer ${newToken}`;
+      res = await fetch(`${BASE}${path}`, { ...options, headers });
+    } else {
+      localStorage.removeItem("access_token");
+      localStorage.removeItem("refresh_token");
+      window.dispatchEvent(new Event("auth:logout"));
+    }
+  }
+
+  if (!res.ok) {
+    let body: Record<string, unknown> = {};
+    try {
+      body = await res.json();
+    } catch {
+      // ignore parse errors
+    }
+    const detail = typeof body.detail === "string" ? body.detail : `Request failed with status ${res.status}`;
+    const rateLimit = body.limit !== undefined
+      ? { limit: body.limit as number, used: body.used as number, remaining: body.remaining as number, reset_at: body.reset_at as string }
+      : undefined;
+    throw new ApiError(detail, res.status, rateLimit);
+  }
+
+  return res;
+}
+
+async function _attemptRefresh(): Promise<boolean> {
+  const refreshToken = localStorage.getItem("refresh_token");
+  if (!refreshToken) return false;
+
+  try {
+    const res = await fetch(`${BASE}/auth/refresh`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ refresh_token: refreshToken }),
+    });
+    if (!res.ok) return false;
+    const data = await res.json();
+    localStorage.setItem("access_token", data.access_token);
+    localStorage.setItem("refresh_token", data.refresh_token);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+// ── API functions ───────────────────────────────────────────────────────
+
 export async function createSession(
   query: string,
   maxImages: number,
   blacklist?: string[]
 ): Promise<SessionResponse> {
-  const res = await fetch(`${BASE}/sessions`, {
+  const res = await apiFetch("/sessions", {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ query, max_images: maxImages, blacklist: blacklist ?? [] }),
   });
-  if (!res.ok) throw new Error("Failed to create session");
   return res.json();
 }
 
-export async function getSession(
-  sessionId: string
-): Promise<SessionState> {
-  const res = await fetch(`${BASE}/sessions/${sessionId}`);
-  if (!res.ok) throw new Error("Session not found");
+export async function getSession(sessionId: string): Promise<SessionState> {
+  const res = await apiFetch(`/sessions/${sessionId}`);
   return res.json();
 }
 
@@ -92,51 +178,28 @@ export function subscribeToSession(
 }
 
 export async function listCollections(): Promise<CollectionsResponse> {
-  const res = await fetch(`${BASE}/collections`);
-  if (!res.ok) throw new Error("Failed to list collections");
+  const res = await apiFetch("/collections");
   return res.json();
 }
 
-export async function getCollection(
-  name: string
-): Promise<CollectionDetail> {
-  const res = await fetch(`${BASE}/collections/${encodeURIComponent(name)}`);
-  if (!res.ok) throw new Error("Collection not found");
+export async function getCollection(name: string): Promise<CollectionDetail> {
+  const res = await apiFetch(`/collections/${encodeURIComponent(name)}`);
   return res.json();
 }
 
-export async function deleteCollection(
-  name: string
-): Promise<void> {
-  const res = await fetch(
-    `${BASE}/collections/${encodeURIComponent(name)}`,
-    { method: "DELETE" }
-  );
-  if (!res.ok) throw new Error("Failed to delete collection");
-}
-
-export interface BlacklistResponse {
-  items: string[];
+export async function deleteCollection(name: string): Promise<void> {
+  await apiFetch(`/collections/${encodeURIComponent(name)}`, { method: "DELETE" });
 }
 
 export async function getBlacklist(): Promise<BlacklistResponse> {
-  const res = await fetch(`${BASE}/settings/blacklist`);
-  if (!res.ok) throw new Error("Failed to fetch blacklist");
+  const res = await apiFetch("/settings/blacklist");
   return res.json();
 }
 
-export async function updateBlacklist(
-  items: string[]
-): Promise<BlacklistResponse> {
-  const res = await fetch(`${BASE}/settings/blacklist`, {
+export async function updateBlacklist(items: string[]): Promise<BlacklistResponse> {
+  const res = await apiFetch("/settings/blacklist", {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ items }),
   });
-  if (!res.ok) throw new Error("Failed to update blacklist");
   return res.json();
 }
-
-// ── Settings (global) ───────────────────────────────────────────────────────
-// Blacklist is now per-session via createSession(). Global endpoints are kept
-// for programmatic access but the UI is removed.

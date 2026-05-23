@@ -2,17 +2,21 @@ import { useState, type FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
 import { Input } from "@/shared/ui/input";
 import { Button } from "@/shared/ui/button";
-import { Search, SlidersHorizontal, Loader2, Plus, X, AlertTriangle } from "lucide-react";
-import { createSession } from "@/shared/api/client";
+import { Search, SlidersHorizontal, Loader2, Plus, X, AlertTriangle, LogIn } from "lucide-react";
+import { createSession, ApiError } from "@/shared/api/client";
+import { useAuth } from "@/app/auth-context";
 import { cn } from "@/shared/lib/cn";
+import { Link } from "react-router-dom";
 
 export function SearchForm() {
   const navigate = useNavigate();
+  const { isAuthenticated, rateLimit, refreshUser } = useAuth();
   const [query, setQuery] = useState("");
   const [maxImages, setMaxImages] = useState(50);
   const [showOptions, setShowOptions] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [rateLimited, setRateLimited] = useState(false);
   const [blacklist, setBlacklist] = useState<string[]>([]);
   const [blacklistInput, setBlacklistInput] = useState("");
 
@@ -35,26 +39,33 @@ export function SearchForm() {
     setBlacklist((prev) => prev.filter((_, i) => i !== idx));
   };
 
+  const remaining = rateLimit?.remaining ?? 1;
+  const isDisabled = !query.trim() || loading || remaining <= 0;
+
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     const trimmed = query.trim();
-    if (!trimmed) return;
+    if (!trimmed || remaining <= 0) return;
 
     setLoading(true);
     setError("");
+    setRateLimited(false);
 
     try {
       const { session_id } = await createSession(trimmed, maxImages, blacklist);
 
-      // Save to recent
-      const recent = [trimmed, ...recentQueries.filter((q) => q !== trimmed)].slice(
-        0, 5
-      );
+      const recent = [trimmed, ...recentQueries.filter((q) => q !== trimmed)].slice(0, 5);
       localStorage.setItem("recent_searches", JSON.stringify(recent));
 
+      refreshUser();
       navigate(`/search/${session_id}`);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to start search");
+      if (err instanceof ApiError && err.status === 429) {
+        setRateLimited(true);
+        refreshUser();
+      } else {
+        setError(err instanceof Error ? err.message : "Failed to start search");
+      }
       setLoading(false);
     }
   };
@@ -85,7 +96,7 @@ export function SearchForm() {
           Options{blacklist.length > 0 ? ` (${blacklist.length} blacklisted)` : ""}
         </button>
 
-        <Button type="submit" size="lg" disabled={!query.trim() || loading}>
+        <Button type="submit" size="lg" disabled={isDisabled}>
           {loading ? (
             <>
               <Loader2 className="h-4 w-4 animate-spin" />
@@ -180,6 +191,29 @@ export function SearchForm() {
               </div>
             )}
           </div>
+        </div>
+      )}
+
+      {rateLimited && (
+        <div className="mt-3 glass rounded-xl p-4 border border-amber-500/20 animate-fade-in">
+          {isAuthenticated ? (
+            <p className="text-sm text-amber-400">
+              Daily search limit reached. You can try again tomorrow, or{" "}
+              <span className="text-neutral-400">upgrade your plan</span> for more searches.
+            </p>
+          ) : (
+            <p className="text-sm text-amber-400">
+              You've used your free search.{" "}
+              <Link to="/register" className="text-accent-400 hover:text-accent-300 font-medium">
+                Create an account
+              </Link>{" "}
+              or{" "}
+              <Link to="/login" className="text-accent-400 hover:text-accent-300 font-medium">
+                sign in
+              </Link>{" "}
+              to continue searching.
+            </p>
+          )}
         </div>
       )}
 

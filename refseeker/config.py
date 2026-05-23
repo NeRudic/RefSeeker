@@ -16,6 +16,15 @@ GPT_MAX_TOKENS_PER_IMAGE = 150
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 MISTRAL_API_KEY = os.getenv("MISTRAL_API_KEY")
 
+# ── Database ────────────────────────────────────────────────────────────
+DATABASE_URL = os.getenv("DATABASE_URL", "postgresql+asyncpg://postgres:postgres@localhost:5432/refseeker")
+
+# ── JWT ─────────────────────────────────────────────────────────────────
+JWT_SECRET = os.getenv("JWT_SECRET", "change-me-in-production")
+JWT_ALGORITHM = "HS256"
+ACCESS_TOKEN_EXPIRE_MINUTES = 15
+REFRESH_TOKEN_EXPIRE_DAYS = 7
+
 # ── Config file ─────────────────────────────────────────────────────────────
 _CONFIG_PATH = os.path.join(os.path.dirname(__file__), "..", "config.json")
 
