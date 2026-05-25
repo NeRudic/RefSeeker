@@ -23,5 +23,6 @@
 - Python path: `.venv/Scripts/python`
 - Install deps: `pip install ".[dev]"`
 - Docker stack: `docker compose up --build`
-- Key files: `refseeker/` package, `config.json`, `.env`, `pyproject.toml`, `docker-compose.yml`
+- Key files: `refseeker/` package, `config.json`, `.env`, `pyproject.toml`, `docker-compose.yml`, `docker-entrypoint.sh`
 - CI: `.github/workflows/ci.yml` — lint + test (Python 3.10–3.12) + frontend build
+- Deployment: `docker compose up --build` (migrations run automatically on startup)

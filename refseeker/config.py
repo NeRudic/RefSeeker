@@ -146,6 +146,10 @@ _ch = logging.StreamHandler()
 _ch.setFormatter(_fmt)
 logger.addHandler(_ch)
 
-_fh = RotatingFileHandler(LOG_FILE, mode="a", encoding="utf-8", maxBytes=LOG_MAX_BYTES, backupCount=LOG_BACKUP_COUNT)
-_fh.setFormatter(_fmt)
-logger.addHandler(_fh)
+# Don't write log files inside Docker containers — stdout is the right target there
+if not os.environ.get("IN_DOCKER"):
+    _fh = RotatingFileHandler(
+        LOG_FILE, mode="a", encoding="utf-8", maxBytes=LOG_MAX_BYTES, backupCount=LOG_BACKUP_COUNT
+    )
+    _fh.setFormatter(_fmt)
+    logger.addHandler(_fh)

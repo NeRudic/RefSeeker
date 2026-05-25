@@ -33,16 +33,21 @@ CI настроен через GitHub Actions (`.github/workflows/ci.yml`):
 
 ## Docker
 
-- `Dockerfile` — бэкенд (FastAPI + uvicorn на python:3.12-slim)
+- `Dockerfile` — бэкенд (python:3.12-slim + entrypoint)
+- `docker-entrypoint.sh` — ожидание PostgreSQL → alembic upgrade → uvicorn
 - `web/Dockerfile` — фронтенд (node build → nginx)
+- `web/nginx.conf` — прокси /api на бэкенд + SSE no-buffering
 - `docker-compose.yml` — `db` (postgres 17) + `backend` + `frontend`
 
 ```bash
-# Собрать и запустить всё
+# Подготовить .env с API-ключами (docker compose читает .env автоматически)
+# SERPER_API_KEY, MISTRAL_API_KEY, GEMINI_API_KEY — обязательны
+
+# Запуск всего стека (миграции применяются автоматически)
 docker compose up --build
 
-# Миграции БД (после первого запуска)
-docker compose exec backend alembic upgrade head
+# Остановка
+docker compose down
 ```
 
 ## Pyproject.toml

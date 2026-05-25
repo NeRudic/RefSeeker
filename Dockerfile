@@ -23,6 +23,10 @@ COPY --from=builder /app/config.json .
 # Alembic needs the refseeker package importable
 ENV PYTHONPATH=/app
 
+# Entrypoint — waits for DB, runs migrations, starts uvicorn
+COPY docker-entrypoint.sh /app/
+RUN chmod +x /app/docker-entrypoint.sh
+
 EXPOSE 8000
 
-CMD ["uvicorn", "refseeker.api:app", "--host", "0.0.0.0", "--port", "8000"]
+ENTRYPOINT ["/app/docker-entrypoint.sh"]
