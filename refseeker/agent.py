@@ -62,8 +62,10 @@ async def _download_one(url: str, sem: asyncio.Semaphore, progress_tracker=None)
         if image_bytes is None:
             if progress_tracker:
                 progress_tracker.download_progress(
-                    current=state.download_attempts, total=len(state.downloaded_urls) + 1,
-                    url=url, status="failed",
+                    current=state.download_attempts,
+                    total=len(state.downloaded_urls) + 1,
+                    url=url,
+                    status="failed",
                 )
             return None
 
@@ -108,7 +110,13 @@ async def _download_one(url: str, sem: asyncio.Semaphore, progress_tracker=None)
         return (url, mime_type, image_bytes, width, height)
 
 
-async def run_agent(query: str, max_images: int = MAX_IMAGES_DEFAULT, progress_tracker=None, blacklist: list[str] | None = None, collection_id: str | None = None) -> None:
+async def run_agent(
+    query: str,
+    max_images: int = MAX_IMAGES_DEFAULT,
+    progress_tracker=None,
+    blacklist: list[str] | None = None,
+    collection_id: str | None = None,
+) -> None:
     # Merge session blacklist with global IMAGE_BLACKLIST from config.json
     session_blacklist = blacklist or []
     combined_blacklist = list(set(session_blacklist + IMAGE_BLACKLIST))

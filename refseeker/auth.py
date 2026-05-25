@@ -13,7 +13,6 @@ from .config import (
     JWT_ALGORITHM,
     JWT_SECRET,
     REFRESH_TOKEN_EXPIRE_DAYS,
-    logger,
 )
 from .database import get_db
 from .models import User
@@ -22,6 +21,7 @@ _oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/login", auto_error=Fal
 
 
 # ── Password utilities ──────────────────────────────────────────────────
+
 
 def hash_password(password: str) -> str:
     return bcrypt.hashpw(password.encode(), bcrypt.gensalt()).decode()
@@ -33,12 +33,15 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
 
 # ── JWT utilities ──────────────────────────────────────────────────────
 
+
 def _create_token(data: dict, expires_delta: timedelta) -> str:
     to_encode = data.copy()
-    to_encode.update({
-        "exp": datetime.now(timezone.utc) + expires_delta,
-        "iat": datetime.now(timezone.utc),
-    })
+    to_encode.update(
+        {
+            "exp": datetime.now(timezone.utc) + expires_delta,
+            "iat": datetime.now(timezone.utc),
+        }
+    )
     return jwt.encode(to_encode, JWT_SECRET, algorithm=JWT_ALGORITHM)
 
 
@@ -66,6 +69,7 @@ def decode_token(token: str) -> dict | None:
 
 
 # ── FastAPI dependencies ────────────────────────────────────────────────
+
 
 async def get_current_user(
     token: str = Depends(_oauth2_scheme),

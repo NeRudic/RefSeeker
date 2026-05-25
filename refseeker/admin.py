@@ -1,4 +1,3 @@
-import math
 import uuid
 from datetime import date, datetime, timedelta
 
@@ -6,7 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import Date, cast, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from .auth import get_current_user, require_admin
+from .auth import require_admin
 from .config import DEFAULT_USAGE_DAYS
 from .database import get_db
 from .models import Collection, RequestLog, User
@@ -43,14 +42,16 @@ async def list_users(
     for u in users:
         ip = str(u.id)
         usage = await get_usage_today(u, ip, db)
-        users_response.append(AdminUserResponse(
-            id=u.id,
-            email=u.email,
-            role=u.role,
-            created_at=u.created_at,
-            usage_today=usage,
-            daily_limit=get_daily_limit(u),
-        ))
+        users_response.append(
+            AdminUserResponse(
+                id=u.id,
+                email=u.email,
+                role=u.role,
+                created_at=u.created_at,
+                usage_today=usage,
+                daily_limit=get_daily_limit(u),
+            )
+        )
 
     return AdminUserListResponse(
         users=users_response,
@@ -90,6 +91,7 @@ async def update_user_role(
 
 # ── Usage Dashboard ──────────────────────────────────────────────────────
 
+
 def _default_date_range() -> tuple[date, date]:
     """Default to last 30 days if no range specified."""
     today = date.today()
@@ -109,8 +111,7 @@ async def usage_summary(
 
     # Total requests in period
     req_result = await db.execute(
-        select(func.coalesce(func.sum(RequestLog.request_count), 0))
-        .where(RequestLog.date >= f, RequestLog.date <= t)
+        select(func.coalesce(func.sum(RequestLog.request_count), 0)).where(RequestLog.date >= f, RequestLog.date <= t)
     )
     total_requests = req_result.scalar() or 0
 
@@ -125,8 +126,9 @@ async def usage_summary(
     # Active users today
     today = date.today()
     active_result = await db.execute(
-        select(func.count(func.distinct(RequestLog.user_id)))
-        .where(RequestLog.date == today, RequestLog.user_id.isnot(None))
+        select(func.count(func.distinct(RequestLog.user_id))).where(
+            RequestLog.date == today, RequestLog.user_id.isnot(None)
+        )
     )
     active_users_today = active_result.scalar() or 0
 
@@ -149,11 +151,7 @@ async def usage_summary(
     users_per_day = [DailyPoint(date=str(row[0]), count=row[1]) for row in users_day_result.all()]
 
     # Role distribution
-    role_result = await db.execute(
-        select(User.role, func.count(User.id))
-        .group_by(User.role)
-        .order_by(User.role)
-    )
+    role_result = await db.execute(select(User.role, func.count(User.id)).group_by(User.role).order_by(User.role))
     role_distribution = [RoleCount(role=row[0], count=row[1]) for row in role_result.all()]
 
     # Collections per day
@@ -198,8 +196,9 @@ async def user_usage(
 
         # Total requests in period for this user
         total_result = await db.execute(
-            select(func.coalesce(func.sum(RequestLog.request_count), 0))
-            .where(RequestLog.user_id == user.id, RequestLog.date >= f, RequestLog.date <= t)
+            select(func.coalesce(func.sum(RequestLog.request_count), 0)).where(
+                RequestLog.user_id == user.id, RequestLog.date >= f, RequestLog.date <= t
+            )
         )
         total_in_period = total_result.scalar() or 0
 
@@ -223,8 +222,9 @@ async def user_usage(
     else:
         # Anonymous / unauthorized usage
         total_result = await db.execute(
-            select(func.coalesce(func.sum(RequestLog.request_count), 0))
-            .where(RequestLog.user_id.is_(None), RequestLog.date >= f, RequestLog.date <= t)
+            select(func.coalesce(func.sum(RequestLog.request_count), 0)).where(
+                RequestLog.user_id.is_(None), RequestLog.date >= f, RequestLog.date <= t
+            )
         )
         total_in_period = total_result.scalar() or 0
 

@@ -1,11 +1,10 @@
-import uuid
 from datetime import date, datetime, timedelta, timezone
 
 from fastapi import HTTPException, status
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from .config import RATE_LIMITS, logger
+from .config import RATE_LIMITS
 from .models import User
 
 
@@ -19,18 +18,12 @@ async def get_usage_today(user: User | None, ip: str, db: AsyncSession) -> int:
     today = date.today()
     if user:
         result = await db.execute(
-            text(
-                "SELECT request_count FROM request_logs "
-                "WHERE user_id = :uid AND date = :today"
-            ),
+            text("SELECT request_count FROM request_logs WHERE user_id = :uid AND date = :today"),
             {"uid": user.id, "today": today},
         )
     else:
         result = await db.execute(
-            text(
-                "SELECT request_count FROM request_logs "
-                "WHERE ip_address = :ip AND date = :today AND user_id IS NULL"
-            ),
+            text("SELECT request_count FROM request_logs WHERE ip_address = :ip AND date = :today AND user_id IS NULL"),
             {"ip": ip, "today": today},
         )
     row = result.scalar_one_or_none()

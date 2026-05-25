@@ -8,15 +8,12 @@ Debug runner — запускает main.py, логирует всё в logs/las
 
 import os
 import subprocess
-import sys
 from datetime import datetime
 
 LOG_DIR = os.path.join(os.path.dirname(__file__), "logs")
 LOG_FILE = os.path.join(LOG_DIR, "last-run.log")
 MAIN_PY = os.path.join(os.path.dirname(__file__), "main.py")
-VENV_PYTHON = os.path.join(
-    os.path.dirname(__file__), ".venv", "Scripts", "python.exe"
-)
+VENV_PYTHON = os.path.join(os.path.dirname(__file__), ".venv", "Scripts", "python.exe")
 
 # Ключевые паттерны, которые показываем в консоль
 KEYWORDS = ("ERROR", "done()", "whitelist", "сайт", "site", "success", "fail")

@@ -1,5 +1,7 @@
 """Run the RefSeeker API server."""
+
 import uvicorn
+
 from refseeker.api import app
 
 if __name__ == "__main__":

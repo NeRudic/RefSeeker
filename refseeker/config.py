@@ -116,13 +116,16 @@ SEARCH_QUERY_VARIANTS: list[str] = _pipeline.get(
 MAX_IMAGES_DEFAULT: int = _pipeline.get("max_images", 50)
 COLLECTION_FOLDER_MAX_LENGTH: int = _pipeline.get("collection_folder_max_length", 40)
 SSE_QUEUE_TIMEOUT: int = _pipeline.get("sse_queue_timeout", 30)
-RATE_LIMITS: dict[str, int] = _pipeline.get("rate_limits", {
-    "unauthenticated": 1,
-    "free": 2,
-    "pro": 100,
-    "premium": 1100,
-    "admin": -1,
-})
+RATE_LIMITS: dict[str, int] = _pipeline.get(
+    "rate_limits",
+    {
+        "unauthenticated": 1,
+        "free": 2,
+        "pro": 100,
+        "premium": 1100,
+        "admin": -1,
+    },
+)
 
 # ── Admin ─────────────────────────────────────────────────────────
 DEFAULT_USAGE_DAYS: int = 30
@@ -143,7 +146,6 @@ _ch = logging.StreamHandler()
 _ch.setFormatter(_fmt)
 logger.addHandler(_ch)
 
-_fh = RotatingFileHandler(LOG_FILE, mode="a", encoding="utf-8",
-                          maxBytes=LOG_MAX_BYTES, backupCount=LOG_BACKUP_COUNT)
+_fh = RotatingFileHandler(LOG_FILE, mode="a", encoding="utf-8", maxBytes=LOG_MAX_BYTES, backupCount=LOG_BACKUP_COUNT)
 _fh.setFormatter(_fmt)
 logger.addHandler(_fh)

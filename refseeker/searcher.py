@@ -29,7 +29,7 @@ def search_images(query: str, count: int = 100) -> list[str]:
     }
     payload = {"q": query, "num": min(count, 100)}
 
-    logger.info("Searching Serper images for: \"%s\" (num=%d)", query, count)
+    logger.info('Searching Serper images for: "%s" (num=%d)', query, count)
 
     try:
         resp = _SERPER_CLIENT.post(SERPER_URL, json=payload, headers=headers)
@@ -42,5 +42,5 @@ def search_images(query: str, count: int = 100) -> list[str]:
     items = data.get("images", [])
     urls = [item["imageUrl"] for item in items if item.get("imageUrl")]
 
-    logger.info("Serper returned %d image URLs for \"%s\"", len(urls), query)
+    logger.info('Serper returned %d image URLs for "%s"', len(urls), query)
     return urls

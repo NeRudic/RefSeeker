@@ -6,10 +6,9 @@ from sqlalchemy.engine import Connection
 from sqlalchemy.ext.asyncio import create_async_engine
 
 from alembic import context
-
 from refseeker.config import DATABASE_URL
 from refseeker.database import Base
-from refseeker.models import Collection, User, RequestLog  # noqa: F401 — ensure models are loaded
+from refseeker.models import Collection, RequestLog, User  # noqa: F401 — ensure models are loaded
 
 config = context.config
 

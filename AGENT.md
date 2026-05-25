@@ -17,6 +17,43 @@
 - TanStack Query 5 — управление состоянием
 - Recharts 3.8 — графики в админ-дашборде
 
+## CI/CD
+
+| Команда | Назначение |
+|---|---|
+| `ruff check .` | Линтинг Python-кода |
+| `ruff format --check .` | Проверка форматирования |
+| `pytest tests/ -q` | Unit-тесты |
+| `docker compose up --build` | Запуск всего стека (postgres + backend + frontend) |
+
+CI настроен через GitHub Actions (`.github/workflows/ci.yml`):
+- **lint** — ruff check + format-check на Python 3.10–3.12
+- **test** — pytest на Python 3.10–3.12
+- **frontend** — npm ci + eslint + build (Node 22)
+
+## Docker
+
+- `Dockerfile` — бэкенд (FastAPI + uvicorn на python:3.12-slim)
+- `web/Dockerfile` — фронтенд (node build → nginx)
+- `docker-compose.yml` — `db` (postgres 17) + `backend` + `frontend`
+
+```bash
+# Собрать и запустить всё
+docker compose up --build
+
+# Миграции БД (после первого запуска)
+docker compose exec backend alembic upgrade head
+```
+
+## Pyproject.toml
+
+Все зависимости управляются через `pyproject.toml`:
+
+```bash
+pip install .           # runtime
+pip install ".[dev]"    # + dev (pytest, ruff)
+```
+
 ## Быстрый старт
 
 ### База данных

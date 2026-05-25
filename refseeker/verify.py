@@ -12,11 +12,11 @@ from google import genai
 
 from .config import (
     GEMINI_API_KEY,
-    MISTRAL_API_KEY,
-    MISTRAL_MAX_IMAGES,
     MAX_TOKENS_BASE,
     MAX_TOKENS_CAP,
     MAX_TOKENS_PER_IMAGE,
+    MISTRAL_API_KEY,
+    MISTRAL_MAX_IMAGES,
     PROVIDER_CONFIG,
     RETRIES_GEMINI,
     RETRIES_MISTRAL,
@@ -45,11 +45,13 @@ def _get_mistral_client():
     global _mistral_client
     if _mistral_client is None and MISTRAL_API_KEY:
         from mistralai.client import Mistral
+
         _mistral_client = Mistral(api_key=MISTRAL_API_KEY)
     return _mistral_client
 
 
 # ── Shared prompt builder ──────────────────────────────────────────
+
 
 def _build_verification_prompt(candidates, max_tokens_base=MAX_TOKENS_BASE, max_tokens_per_image=MAX_TOKENS_PER_IMAGE):
     """Build prompt text + PIL images + raw resize bytes + max_tokens for a batch of candidates."""
@@ -59,7 +61,7 @@ def _build_verification_prompt(candidates, max_tokens_base=MAX_TOKENS_BASE, max_
     if session_blacklist:
         items = ", ".join(session_blacklist)
         blacklist_section = (
-            f'4. REJECT if the image contains ANY of the following: {items}.\n'
+            f"4. REJECT if the image contains ANY of the following: {items}.\n"
             f'   Include "unwanted_content": true for each matching image.\n'
         )
 
@@ -87,6 +89,7 @@ def _build_verification_prompt(candidates, max_tokens_base=MAX_TOKENS_BASE, max_
 
 # ── Model adapters ─────────────────────────────────────────────────
 
+
 async def _call_gemini(prompt, pil_images, max_tokens):
     """Call Gemini 2.5 Flash via google.genai. Returns parsed dict or None on failure."""
     client = _get_gemini_client()
@@ -113,21 +116,30 @@ async def _call_gemini(prompt, pil_images, max_tokens):
         except Exception as e:
             err_str = str(e).lower()
             should_retry = (
-                "rate_limit" in err_str or "429" in err_str
-                or "500" in err_str or "502" in err_str or "503" in err_str
-                or "timeout" in err_str or "quota" in err_str
+                "rate_limit" in err_str
+                or "429" in err_str
+                or "500" in err_str
+                or "502" in err_str
+                or "503" in err_str
+                or "timeout" in err_str
+                or "quota" in err_str
             )
             if attempt < max_retries - 1 and should_retry:
                 wait = 2 ** (attempt + 2)
                 logger.warning(
                     "Gemini API error, retrying in %ds (%d/%d): %s",
-                    wait, attempt + 2, max_retries, e,
+                    wait,
+                    attempt + 2,
+                    max_retries,
+                    e,
                 )
                 await asyncio.sleep(wait)
             else:
                 logger.warning(
                     "Gemini API call failed (%d/%d): %s",
-                    attempt + 1, max_retries, e,
+                    attempt + 1,
+                    max_retries,
+                    e,
                 )
                 return None
     return None
@@ -143,10 +155,12 @@ async def _call_mistral(prompt, resized_images, max_tokens, model_id):
     content = [{"type": "text", "text": prompt}]
     for img_bytes in resized_images:
         b64 = base64.b64encode(img_bytes).decode()
-        content.append({
-            "type": "image_url",
-            "image_url": f"data:image/jpeg;base64,{b64}",
-        })
+        content.append(
+            {
+                "type": "image_url",
+                "image_url": f"data:image/jpeg;base64,{b64}",
+            }
+        )
 
     def _sync_call():
         return client.chat.complete(
@@ -167,27 +181,39 @@ async def _call_mistral(prompt, resized_images, max_tokens, model_id):
         except Exception as e:
             err_str = str(e).lower()
             should_retry = (
-                "rate_limit" in err_str or "429" in err_str
-                or "500" in err_str or "502" in err_str or "503" in err_str
-                or "timeout" in err_str or "quota" in err_str
+                "rate_limit" in err_str
+                or "429" in err_str
+                or "500" in err_str
+                or "502" in err_str
+                or "503" in err_str
+                or "timeout" in err_str
+                or "quota" in err_str
             )
             if attempt < max_retries - 1 and should_retry:
                 wait = 2 ** (attempt + 2)
                 logger.warning(
                     "Mistral %s error, retrying in %ds (%d/%d): %s",
-                    model_id, wait, attempt + 2, max_retries, e,
+                    model_id,
+                    wait,
+                    attempt + 2,
+                    max_retries,
+                    e,
                 )
                 await asyncio.sleep(wait)
             else:
                 logger.warning(
                     "Mistral %s call failed (%d/%d): %s",
-                    model_id, attempt + 1, max_retries, e,
+                    model_id,
+                    attempt + 1,
+                    max_retries,
+                    e,
                 )
                 return None
     return None
 
 
 # ── Evaluation processing (lock-protected) ─────────────────────────
+
 
 async def _process_evaluations(evaluations, candidates, progress_tracker, lock):
     """Process evaluations from any provider. Lock guards state mutations."""
@@ -262,13 +288,20 @@ async def _process_evaluations(evaluations, candidates, progress_tracker, lock):
                 final_path = f"/api/collections/{state.query_folder}/images/{file_name}"
                 if progress_tracker:
                     progress_tracker.image_approved(
-                        url, final_path, reason, state.saved_count, state.max_images,
+                        url,
+                        final_path,
+                        reason,
+                        state.saved_count,
+                        state.max_images,
                     )
                 log_lines.append(
                     f"  {url}: SAVED ({state.saved_count}/{state.max_images}) — {reason}",
                 )
                 logger.debug(
-                    "Saved image %d/%d -> %s", state.saved_count, state.max_images, file_path,
+                    "Saved image %d/%d -> %s",
+                    state.saved_count,
+                    state.max_images,
+                    file_path,
                 )
 
                 if state.is_full:
@@ -279,6 +312,7 @@ async def _process_evaluations(evaluations, candidates, progress_tracker, lock):
 
 # ── Per-provider verification task ─────────────────────────────────
 
+
 async def _verify_task(candidates, provider_cfg, progress_tracker, lock, fallback_queue) -> bool:
     """Process a group of candidates through a single provider.
     Returns True if all chunks were processed successfully, False otherwise.
@@ -288,7 +322,7 @@ async def _verify_task(candidates, provider_cfg, progress_tracker, lock, fallbac
 
     if provider_cfg["adapter"] == "mistral":
         for chunk_start in range(0, len(candidates), MISTRAL_MAX_IMAGES):
-            chunk = candidates[chunk_start:chunk_start + MISTRAL_MAX_IMAGES]
+            chunk = candidates[chunk_start : chunk_start + MISTRAL_MAX_IMAGES]
             prompt, pil_images, resized_images, max_tokens = _build_verification_prompt(
                 chunk,
                 max_tokens_base=provider_cfg.get("max_tokens_base", MAX_TOKENS_BASE),
@@ -299,7 +333,8 @@ async def _verify_task(candidates, provider_cfg, progress_tracker, lock, fallbac
             if parsed is None:
                 logger.warning(
                     "Provider %s returned no result — queuing %d images for fallback",
-                    provider_cfg["name"], len(chunk),
+                    provider_cfg["name"],
+                    len(chunk),
                 )
                 fallback_queue.extend(candidates[chunk_start:])
                 return False
@@ -308,7 +343,8 @@ async def _verify_task(candidates, provider_cfg, progress_tracker, lock, fallbac
             if not evaluations:
                 logger.warning(
                     "Provider %s returned empty evaluations — queuing %d images for fallback",
-                    provider_cfg["name"], len(chunk),
+                    provider_cfg["name"],
+                    len(chunk),
                 )
                 fallback_queue.extend(candidates[chunk_start:])
                 return False
@@ -319,7 +355,9 @@ async def _verify_task(candidates, provider_cfg, progress_tracker, lock, fallbac
             await _process_evaluations(evaluations, chunk, progress_tracker, lock)
             logger.info(
                 "Provider %s chunk %d evaluated: %d images",
-                provider_cfg["name"], chunk_start // MISTRAL_MAX_IMAGES + 1, len(chunk),
+                provider_cfg["name"],
+                chunk_start // MISTRAL_MAX_IMAGES + 1,
+                len(chunk),
             )
         return True
 
@@ -337,13 +375,19 @@ async def _verify_task(candidates, provider_cfg, progress_tracker, lock, fallbac
         return False
 
     if parsed is None:
-        logger.warning("Provider %s returned no result — queuing %d images for fallback", provider_cfg["name"], len(candidates))
+        logger.warning(
+            "Provider %s returned no result — queuing %d images for fallback", provider_cfg["name"], len(candidates)
+        )
         fallback_queue.extend(candidates)
         return False
 
     evaluations = parsed.get("evaluations", parsed if isinstance(parsed, list) else [])
     if not evaluations:
-        logger.warning("Provider %s returned empty evaluations — queuing %d images for fallback", provider_cfg["name"], len(candidates))
+        logger.warning(
+            "Provider %s returned empty evaluations — queuing %d images for fallback",
+            provider_cfg["name"],
+            len(candidates),
+        )
         fallback_queue.extend(candidates)
         return False
 
@@ -354,6 +398,7 @@ async def _verify_task(candidates, provider_cfg, progress_tracker, lock, fallbac
 
 
 # ── Parallel orchestrator ──────────────────────────────────────────
+
 
 async def _verify_parallel(candidates, progress_tracker=None):
     """Distribute candidates across providers in parallel rotation.
@@ -379,7 +424,8 @@ async def _verify_parallel(candidates, progress_tracker=None):
 
     logger.info(
         "Parallel verification: %d images across %d providers (%s)",
-        len(candidates), len(active_providers),
+        len(candidates),
+        len(active_providers),
         ", ".join(p["name"] for p in active_providers),
     )
 
@@ -398,7 +444,9 @@ async def _verify_parallel(candidates, progress_tracker=None):
         if group:
             if progress_tracker:
                 progress_tracker.verification_batch_started(
-                    batch_num=i + 1, total_batches=len(active_providers), size=len(group),
+                    batch_num=i + 1,
+                    total_batches=len(active_providers),
+                    size=len(group),
                 )
             tasks.append(_verify_task(group, cfg, progress_tracker, lock, fallback_queue))
 
@@ -410,7 +458,8 @@ async def _verify_parallel(candidates, progress_tracker=None):
             failed_providers.add(cfg["name"])
         if group and progress_tracker:
             progress_tracker.verification_batch_complete(
-                batch_num=i + 1, total_batches=len(active_providers),
+                batch_num=i + 1,
+                total_batches=len(active_providers),
             )
 
     # Phase 2: fallback — only surviving providers, parallel
@@ -420,13 +469,15 @@ async def _verify_parallel(candidates, progress_tracker=None):
         if not surviving:
             logger.warning(
                 "Fallback skipped: all %d providers failed, %d images dropped",
-                len(active_providers), len(fallback_queue),
+                len(active_providers),
+                len(fallback_queue),
             )
             return
 
         logger.info(
             "Fallback: %d images → %d surviving providers (%s)",
-            len(fallback_queue), len(surviving),
+            len(fallback_queue),
+            len(surviving),
             ", ".join(p["name"] for p in surviving),
         )
 
@@ -437,7 +488,8 @@ async def _verify_parallel(candidates, progress_tracker=None):
 
         tasks = [
             _verify_task(group, cfg, progress_tracker, lock, fallback_queue)
-            for group, cfg in zip(groups, surviving) if group
+            for group, cfg in zip(groups, surviving)
+            if group
         ]
         await asyncio.gather(*tasks, return_exceptions=True)
 
@@ -447,7 +499,6 @@ async def _verify_parallel(candidates, progress_tracker=None):
                 len(fallback_queue),
             )
 
-
     # Cleanup: remove pending files for any images left in fallback_queue
     if fallback_queue:
         for url, _, _, _, _ in fallback_queue:
@@ -455,6 +506,7 @@ async def _verify_parallel(candidates, progress_tracker=None):
 
 
 # ── Public API (backward-compatible signature) ─────────────────────
+
 
 async def _verify_and_save(candidates: list[tuple], progress_tracker=None) -> None:
     """Verify candidates using parallel rotation across providers.

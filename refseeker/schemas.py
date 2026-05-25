@@ -1,12 +1,12 @@
-from pydantic import BaseModel, field_validator
-from datetime import date, datetime
 import uuid
-from typing import Optional
+from datetime import date, datetime
+
+from pydantic import BaseModel, field_validator
 
 from .config import MAX_IMAGES_DEFAULT
 
-
 # ── Auth ────────────────────────────────────────────────────────────────
+
 
 class RegisterRequest(BaseModel):
     email: str
@@ -69,6 +69,7 @@ class RefreshRequest(BaseModel):
 
 # ── Admin ───────────────────────────────────────────────────────────────
 
+
 class UpdateRoleRequest(BaseModel):
     role: str
 
@@ -101,9 +102,10 @@ class AdminUserListResponse(BaseModel):
 
 # ── Rate limit ──────────────────────────────────────────────────────────
 
+
 class MeResponse(BaseModel):
     authenticated: bool
-    user: Optional[UserResponse] = None
+    user: UserResponse | None = None
     usage_today: int = 0
     daily_limit: int = 1
     remaining: int = 0
@@ -111,6 +113,7 @@ class MeResponse(BaseModel):
 
 
 # ── Usage Dashboard ────────────────────────────────────────────────────
+
 
 class DailyPoint(BaseModel):
     date: str
@@ -143,11 +146,11 @@ class UserUsageResponse(BaseModel):
 
 
 class UsageSummaryParams(BaseModel):
-    from_date: Optional[date] = None
-    to_date: Optional[date] = None
+    from_date: date | None = None
+    to_date: date | None = None
 
 
 class UserUsageParams(BaseModel):
-    email: Optional[str] = None
-    from_date: Optional[date] = None
-    to_date: Optional[date] = None
+    email: str | None = None
+    from_date: date | None = None
+    to_date: date | None = None

@@ -6,9 +6,7 @@ from refseeker.config import logger
 
 
 def main():
-    query = input(
-        "Enter search query for reference images (e.g., 'vintage typewriter'): "
-    ).strip()
+    query = input("Enter search query for reference images (e.g., 'vintage typewriter'): ").strip()
     if not query:
         logger.error("Search query cannot be empty.")
         sys.exit(1)

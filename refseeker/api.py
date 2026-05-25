@@ -1,8 +1,6 @@
 import asyncio
-import os
 import uuid
 from contextlib import asynccontextmanager
-from datetime import datetime, timezone
 from pathlib import Path
 
 from fastapi import Depends, FastAPI, HTTPException, Request
@@ -14,7 +12,15 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from .admin import router as admin_router
 from .agent import run_agent
-from .auth import create_access_token, create_refresh_token, decode_token, get_client_ip, get_current_user, get_optional_user, hash_password, verify_password
+from .auth import (
+    create_access_token,
+    create_refresh_token,
+    decode_token,
+    get_client_ip,
+    get_optional_user,
+    hash_password,
+    verify_password,
+)
 from .config import IMAGE_BLACKLIST, MAX_IMAGES_DEFAULT, logger, update_image_blacklist
 from .database import async_session_factory, engine, get_db
 from .models import Collection, User
@@ -38,6 +44,7 @@ REFERENCES_DIR = Path("references")
 
 # ── FastAPI app ─────────────────────────────────────────────────────────────
 
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     yield
@@ -57,6 +64,7 @@ app.add_middleware(
 
 # ── Schemas ─────────────────────────────────────────────────────────────────
 
+
 class CreateSessionRequest(BaseModel):
     query: str
     max_images: int = MAX_IMAGES_DEFAULT
@@ -68,6 +76,7 @@ class CreateSessionResponse(BaseModel):
 
 
 # ── API endpoints ───────────────────────────────────────────────────────────
+
 
 @app.post("/api/sessions", response_model=CreateSessionResponse)
 async def create_session(
@@ -86,8 +95,11 @@ async def create_session(
 
     logger.info(
         "Session %s started: query=%s max=%d user=%s remaining=%d",
-        session_id, body.query, body.max_images,
-        user.email if user else "anonymous", remaining,
+        session_id,
+        body.query,
+        body.max_images,
+        user.email if user else "anonymous",
+        remaining,
     )
 
     asyncio.create_task(_run_pipeline(session_id, tracker, body.query, body.max_images, user, body.blacklist))
@@ -125,6 +137,7 @@ async def get_session(session_id: str):
         raise HTTPException(status_code=404, detail="Session not found")
 
     from .state import state
+
     return {
         "session_id": session_id,
         "query_name": state.query_name,
@@ -152,9 +165,7 @@ async def list_collections(
     if user and user.role == "admin":
         result = await db.execute(select(Collection))
     elif user:
-        result = await db.execute(
-            select(Collection).where(Collection.user_id == user.id)
-        )
+        result = await db.execute(select(Collection).where(Collection.user_id == user.id))
     else:
         return {"collections": []}
 
@@ -166,12 +177,14 @@ async def list_collections(
         if not folder.is_dir() or folder.name not in folder_map:
             continue
         images = sorted(folder.iterdir()) if folder.exists() else []
-        collections.append({
-            "name": folder.name,
-            "path": str(folder),
-            "image_count": len(images),
-            "thumbnail": _get_thumbnail(folder, images),
-        })
+        collections.append(
+            {
+                "name": folder.name,
+                "path": str(folder),
+                "image_count": len(images),
+                "thumbnail": _get_thumbnail(folder, images),
+            }
+        )
 
     return {"collections": collections}
 
@@ -188,9 +201,7 @@ async def get_collection(
         raise HTTPException(status_code=404, detail="Collection not found")
 
     # Check access
-    result = await db.execute(
-        select(Collection).where(Collection.folder_name == name)
-    )
+    result = await db.execute(select(Collection).where(Collection.folder_name == name))
     db_collection = result.scalar_one_or_none()
     if not db_collection:
         raise HTTPException(status_code=404, detail="Collection not found")
@@ -201,11 +212,13 @@ async def get_collection(
     images = []
     for img in sorted(folder.iterdir()):
         if img.is_file():
-            images.append({
-                "filename": img.name,
-                "path": f"/api/collections/{name}/images/{img.name}",
-                "size": img.stat().st_size,
-            })
+            images.append(
+                {
+                    "filename": img.name,
+                    "path": f"/api/collections/{name}/images/{img.name}",
+                    "size": img.stat().st_size,
+                }
+            )
 
     return {"name": name, "images": images}
 
@@ -231,14 +244,13 @@ async def delete_collection(
         raise HTTPException(status_code=404, detail="Collection not found")
 
     # Check access
-    result = await db.execute(
-        select(Collection).where(Collection.folder_name == name)
-    )
+    result = await db.execute(select(Collection).where(Collection.folder_name == name))
     db_collection = result.scalar_one_or_none()
     if not db_collection or not _can_access_collection(db_collection, user):
         raise HTTPException(status_code=404, detail="Collection not found")
 
     import shutil
+
     await db.delete(db_collection)
     shutil.rmtree(folder)
     logger.info("Deleted collection: %s", name)
@@ -251,6 +263,7 @@ async def health():
 
 
 # ── Auth endpoints ──────────────────────────────────────────────────────────
+
 
 @app.post("/api/auth/register", response_model=RegisterResponse)
 async def register(body: RegisterRequest, db: AsyncSession = Depends(get_db)):
@@ -368,6 +381,7 @@ app.include_router(admin_router)
 
 # ── Settings ─────────────────────────────────────────────────────────────────
 
+
 class UpdateBlacklistRequest(BaseModel):
     items: list[str]
 
@@ -389,32 +403,47 @@ async def set_blacklist(body: UpdateBlacklistRequest):
 
 # ── Background pipeline runner ──────────────────────────────────────────────
 
-async def _run_pipeline(session_id: str, tracker: ProgressTracker, query: str, max_images: int, user: User | None = None, blacklist: list[str] | None = None):
+
+async def _run_pipeline(
+    session_id: str,
+    tracker: ProgressTracker,
+    query: str,
+    max_images: int,
+    user: User | None = None,
+    blacklist: list[str] | None = None,
+):
     """Run the full pipeline and push progress events."""
     collection_id = uuid.uuid4()
     try:
         tracker.search_started(query=query, max_images=max_images)
-        await run_agent(query, max_images, progress_tracker=tracker, blacklist=blacklist, collection_id=collection_id.hex)
+        await run_agent(
+            query, max_images, progress_tracker=tracker, blacklist=blacklist, collection_id=collection_id.hex
+        )
         from .state import state
-        tracker.session_complete(metrics={
-            "saved": state.saved_count,
-            "max": state.max_images,
-            "downloads": state.download_attempts,
-            "gpt_calls": state.gpt_calls,
-            "elapsed": state.elapsed,
-            "filters": dict(state.filter_stats),
-        })
+
+        tracker.session_complete(
+            metrics={
+                "saved": state.saved_count,
+                "max": state.max_images,
+                "downloads": state.download_attempts,
+                "gpt_calls": state.gpt_calls,
+                "elapsed": state.elapsed,
+                "filters": dict(state.filter_stats),
+            }
+        )
 
         # Save collection record (using the pre-generated UUID as PK)
         if state.saved_count > 0:
             async with async_session_factory() as db_session:
                 try:
-                    db_session.add(Collection(
-                        id=collection_id,
-                        user_id=user.id if user else None,
-                        folder_name=state.query_folder,
-                        query=state.query_name,
-                    ))
+                    db_session.add(
+                        Collection(
+                            id=collection_id,
+                            user_id=user.id if user else None,
+                            folder_name=state.query_folder,
+                            query=state.query_name,
+                        )
+                    )
                     await db_session.commit()
                     logger.info("Collection saved: %s (user=%s)", state.query_folder, user.id if user else "anonymous")
                 except Exception as e:
@@ -427,14 +456,17 @@ async def _run_pipeline(session_id: str, tracker: ProgressTracker, query: str, m
     finally:
         # Clean up pending images directory
         from .state import state as pipeline_state
+
         if pipeline_state.output_dir:
             import shutil
+
             pending_dir = Path(pipeline_state.output_dir) / ".pending"
             if pending_dir.exists():
                 shutil.rmtree(pending_dir, ignore_errors=True)
 
 
 # ── Helpers ─────────────────────────────────────────────────────────────────
+
 
 def _get_thumbnail(folder: Path, images: list[Path]) -> str | None:
     """Get the first image as a thumbnail URL for the collection."""

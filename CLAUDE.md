@@ -18,5 +18,10 @@
 - Entry point: `main.py` → runs `refseeker.agent.run_agent()`
 - Debug runner: `debug_run.py` (feeds "Tu-160" query automatically)
 - Test command: `.venv/Scripts/python -m pytest tests/ -q`
+- Lint command: `.venv/Scripts/python -m ruff check .`
+- Format check: `.venv/Scripts/python -m ruff format --check .`
 - Python path: `.venv/Scripts/python`
-- Key files: `refseeker/` package, `config.json`, `.env`
+- Install deps: `pip install ".[dev]"`
+- Docker stack: `docker compose up --build`
+- Key files: `refseeker/` package, `config.json`, `.env`, `pyproject.toml`, `docker-compose.yml`
+- CI: `.github/workflows/ci.yml` — lint + test (Python 3.10–3.12) + frontend build

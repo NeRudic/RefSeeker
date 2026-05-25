@@ -1,7 +1,5 @@
 """Tests for image.py — URL validation, MIME detection, extension mapping."""
 
-import pytest
-
 from refseeker.image import (
     _detect_mime_type,
     _has_null_byte,
@@ -18,12 +16,8 @@ class TestIsLikelyImageUrl:
 
     def test_cdn_url_without_extension(self):
         """Google CDN / imgur URLs have no file extension in path."""
-        assert _is_likely_image_url(
-            "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcT123"
-        )
-        assert _is_likely_image_url(
-            "https://i.imgur.com/abc123def"
-        )
+        assert _is_likely_image_url("https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcT123")
+        assert _is_likely_image_url("https://i.imgur.com/abc123def")
 
     def test_standard_image_urls(self):
         """Normal image URLs with .jpg, .png, .webp extensions."""
@@ -48,7 +42,7 @@ class TestIsLikelyImageUrl:
         """Paths of length <= 3 with no query params are too short to be images."""
         assert not _is_likely_image_url("https://example.com/a")
         assert not _is_likely_image_url("https://example.com/ab")
-        assert not _is_likely_image_url("https://example.com/")   # empty-ish path
+        assert not _is_likely_image_url("https://example.com/")  # empty-ish path
 
     def test_accepts_short_path_with_query(self):
         """Short path + query params = likely CDN image URL."""
