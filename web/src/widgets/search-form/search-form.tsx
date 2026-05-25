@@ -2,7 +2,7 @@ import { useState, type FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
 import { Input } from "@/shared/ui/input";
 import { Button } from "@/shared/ui/button";
-import { Search, SlidersHorizontal, Loader2, Plus, X, AlertTriangle, LogIn } from "lucide-react";
+import { Search, SlidersHorizontal, Loader2, Plus, X, AlertTriangle } from "lucide-react";
 import { createSession, ApiError } from "@/shared/api/client";
 import { useAuth } from "@/app/auth-context";
 import { cn } from "@/shared/lib/cn";

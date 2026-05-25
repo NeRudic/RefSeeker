@@ -6,7 +6,6 @@ import {
   useCallback,
   type ReactNode,
 } from "react";
-import { useNavigate } from "react-router-dom";
 import type { LoginRequest, RegisterRequest, User } from "@/entities/user";
 import { getMe, loginUser, registerUser } from "@/shared/api/auth-client";
 

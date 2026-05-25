@@ -53,7 +53,6 @@ type Tab = (typeof TABS)[number]["key"];
 
 function UsersTab() {
   const [users, setUsers] = useState<AdminUser[]>([]);
-  const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [savingId, setSavingId] = useState<string | null>(null);
@@ -65,7 +64,6 @@ function UsersTab() {
     try {
       const data = await fetchAdminUsers();
       setUsers(data.users);
-      setTotal(data.total);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load users");
     } finally {

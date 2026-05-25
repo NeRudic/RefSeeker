@@ -6,19 +6,16 @@ import {
 } from "recharts";
 import {
   Activity, Users, Image, Calendar, Search,
-  Mail, ChevronDown, Loader2, AlertCircle,
-  BarChart3, PieChart as PieIcon,
+  Mail, Loader2, AlertCircle,
+  BarChart3,
 } from "lucide-react";
 import { cn } from "@/shared/lib/cn";
-import type { UsageSummary, UserUsage, DailyPoint, RoleCount } from "@/entities/user";
+import type { UsageSummary, UserUsage, RoleCount } from "@/entities/user";
 
 // ── Colors ─────────────────────────────────────────────────────────────
 
 const ACCENT = "#818cf8";
-const ACCENT_STOPS = ["#818cf8", "#6366f1"];
 const NEUTRAL = "#525252";
-const GRID = "#262626";
-const TOOLTIP_BG = "rgba(23, 23, 23, 0.95)";
 
 const PIE_COLORS: Record<string, string> = {
   admin: "#ef4444",
