@@ -59,9 +59,9 @@ def _build_verification_prompt(candidates, max_tokens_base=MAX_TOKENS_BASE, max_
     if session_blacklist:
         items = ", ".join(session_blacklist)
         blacklist_section = (
-            f'4. Does it contain any of the following unwanted content: {items}?\n'
+            f'4. REJECT if the image contains ANY of the following: {items}.\n'
+            f'   Include "unwanted_content": true for each matching image.\n'
         )
-        blacklist_field = f'"unwanted_content": false, '
 
     prompt = VERIFICATION_PROMPT_TEMPLATE.format(
         query=state.query_name,
