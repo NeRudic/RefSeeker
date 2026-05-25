@@ -1,6 +1,6 @@
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/shared/lib/cn";
-import { Loader2 } from "lucide-react";
+import { Check, Download, Loader2 } from "lucide-react";
 
 interface ImageItem {
   url: string;
@@ -13,6 +13,14 @@ interface ImageGridProps {
   images: ImageItem[];
   className?: string;
   onImageClick?: (index: number) => void;
+  /** When true, each card shows a checkbox in the top-left corner */
+  selectable?: boolean;
+  /** Set of currently selected indices */
+  selectedIndices?: Set<number>;
+  /** Called when selection changes */
+  onSelectionChange?: (indices: Set<number>) => void;
+  /** Called with image index when the download button is clicked */
+  onDownload?: (index: number) => void;
 }
 
 const cardVariants = {
@@ -30,8 +38,27 @@ const cardVariants = {
   },
 };
 
-export function ImageGrid({ images, className, onImageClick }: ImageGridProps) {
+export function ImageGrid({
+  images,
+  className,
+  onImageClick,
+  selectable,
+  selectedIndices,
+  onSelectionChange,
+  onDownload,
+}: ImageGridProps) {
   if (images.length === 0) return null;
+
+  const toggleSelection = (index: number) => {
+    if (!selectable || !onSelectionChange) return;
+    const next = new Set(selectedIndices ?? []);
+    if (next.has(index)) {
+      next.delete(index);
+    } else {
+      next.add(index);
+    }
+    onSelectionChange(next);
+  };
 
   return (
     <div
@@ -43,6 +70,7 @@ export function ImageGrid({ images, className, onImageClick }: ImageGridProps) {
       <AnimatePresence mode="popLayout">
         {images.map((img, i) => {
           const isPending = img.status === "pending";
+          const isSelected = selectedIndices?.has(i) ?? false;
           return (
             <motion.div
               key={img.url}
@@ -59,11 +87,15 @@ export function ImageGrid({ images, className, onImageClick }: ImageGridProps) {
                 if (!isPending) onImageClick?.(i);
               }}
             >
-              <div className={cn(
-                "glass rounded-xl overflow-hidden transition-all duration-300 relative",
-                !isPending && "group-hover:border-accent-500/30 group-hover:scale-[1.02]",
-                isPending && "animate-pulse-glow"
-              )}>
+              <div
+                className={cn(
+                  "glass rounded-xl overflow-hidden transition-all duration-300 relative",
+                  !isPending &&
+                    "group-hover:border-accent-500/30 group-hover:scale-[1.02]",
+                  isPending && "animate-pulse-glow",
+                  isSelected && "ring-2 ring-accent-500"
+                )}
+              >
                 <img
                   src={img.url}
                   alt={img.label ?? `Image ${i + 1}`}
@@ -84,9 +116,45 @@ export function ImageGrid({ images, className, onImageClick }: ImageGridProps) {
                     </div>
                   </div>
                 )}
+                {/* Checkbox */}
+                {selectable && !isPending && (
+                  <div
+                    className="absolute top-2 left-2 z-10"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      toggleSelection(i);
+                    }}
+                  >
+                    <div
+                      className={cn(
+                        "flex h-5 w-5 items-center justify-center rounded border transition-all duration-200",
+                        isSelected
+                          ? "border-accent-500 bg-accent-500 text-white"
+                          : "border-white/40 bg-black/30 text-transparent group-hover:border-white/70"
+                      )}
+                    >
+                      {isSelected && <Check className="h-3.5 w-3.5" />}
+                    </div>
+                  </div>
+                )}
+                {/* Download button */}
+                {!isPending && onDownload && (
+                  <button
+                    className="absolute top-2 right-2 z-10 flex h-7 w-7 items-center justify-center rounded-full bg-black/50 text-white/70 opacity-0 transition-all duration-200 hover:bg-accent-500 hover:text-white group-hover:opacity-100"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onDownload(i);
+                    }}
+                    title="Download"
+                  >
+                    <Download className="h-3.5 w-3.5" />
+                  </button>
+                )}
                 {img.label && (
                   <div className="px-3 py-2">
-                    <p className="text-xs text-neutral-500 truncate">{img.label}</p>
+                    <p className="text-xs text-neutral-500 truncate">
+                      {img.label}
+                    </p>
                   </div>
                 )}
               </div>

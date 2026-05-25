@@ -1,11 +1,13 @@
 import asyncio
+import io
 import uuid
+import zipfile
 from contextlib import asynccontextmanager
 from pathlib import Path
 
 from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, StreamingResponse
+from fastapi.responses import FileResponse, Response, StreamingResponse
 from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -224,12 +226,56 @@ async def get_collection(
 
 
 @app.get("/api/collections/{name}/images/{filename}")
-async def get_collection_image(name: str, filename: str):
-    """Serve an image file from a collection."""
+async def get_collection_image(name: str, filename: str, download: bool = False):
+    """Serve an image file from a collection. Use ?download=1 for attachment."""
     file_path = REFERENCES_DIR / name / filename
     if not file_path.exists() or not file_path.is_file():
         raise HTTPException(status_code=404, detail="Image not found")
-    return FileResponse(str(file_path))
+    headers = {}
+    if download:
+        headers["Content-Disposition"] = f'attachment; filename="{filename}"'
+    return FileResponse(str(file_path), headers=headers or None)
+
+
+class DownloadCollectionRequest(BaseModel):
+    files: list[str] = []
+
+
+@app.post("/api/collections/{name}/download")
+async def download_collection(
+    name: str,
+    body: DownloadCollectionRequest,
+    user: User | None = Depends(get_optional_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Download selected (or all) images from a collection as a ZIP archive."""
+    folder = REFERENCES_DIR / name
+    if not folder.exists() or not folder.is_dir():
+        raise HTTPException(status_code=404, detail="Collection not found")
+
+    # Check access
+    result = await db.execute(select(Collection).where(Collection.folder_name == name))
+    db_collection = result.scalar_one_or_none()
+    if not db_collection or not _can_access_collection(db_collection, user):
+        raise HTTPException(status_code=404, detail="Collection not found")
+
+    files_to_zip = body.files if body.files else sorted(f.name for f in folder.iterdir() if f.is_file())
+
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
+        for filename in files_to_zip:
+            file_path = folder / filename
+            if file_path.is_file():
+                zf.write(str(file_path), arcname=filename)
+    buf.seek(0)
+
+    return Response(
+        content=buf.getvalue(),
+        media_type="application/zip",
+        headers={
+            "Content-Disposition": f'attachment; filename="{name}.zip"',
+        },
+    )
 
 
 @app.delete("/api/collections/{name}")

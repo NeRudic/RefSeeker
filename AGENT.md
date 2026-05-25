@@ -169,8 +169,9 @@ web/
 | GET | `/api/sessions/{id}` | Public | Состояние сессии |
 | GET | `/api/collections` | Public | Список коллекций |
 | GET | `/api/collections/{name}` | Public | Изображения коллекции |
-| GET | `/api/collections/{name}/images/{file}` | Public | Файл изображения |
-| DELETE | `/api/collections/{name}` | Public | Удалить коллекцию |
+| GET | `/api/collections/{name}/images/{file}` | Public | Файл изображения (?download=1 → attachment) |
+| POST | `/api/collections/{name}/download` | Owner/Admin | Скачать ZIP-архив выбранных файлов (body: `{ files: string[] }`, пустой массив = все) |
+| DELETE | `/api/collections/{name}` | Owner/Admin | Удалить коллекцию |
 | GET | `/api/admin/users` | Admin | Список пользователей |
 | PATCH | `/api/admin/users/{id}/role` | Admin | Смена роли |
 | GET | `/api/admin/usage/summary?from=&to=` | Admin | Общая статистика (запросы/день, пользователи/день, распределение по ролям, коллекции/день) |

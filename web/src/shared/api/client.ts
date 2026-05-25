@@ -203,3 +203,40 @@ export async function updateBlacklist(items: string[]): Promise<BlacklistRespons
   });
   return res.json();
 }
+
+// ── Download helpers ─────────────────────────────────────────────────────
+
+export async function downloadCollection(name: string, files?: string[]): Promise<void> {
+  const token = localStorage.getItem("access_token");
+  const headers: Record<string, string> = { "Content-Type": "application/json" };
+  if (token) headers["Authorization"] = `Bearer ${token}`;
+
+  const res = await fetch(`${BASE}/collections/${encodeURIComponent(name)}/download`, {
+    method: "POST",
+    headers,
+    body: JSON.stringify({ files: files ?? [] }),
+  });
+
+  if (!res.ok) throw new ApiError("Download failed", res.status);
+  await _triggerDownload(res, `${name}.zip`);
+}
+
+export function getImageDownloadUrl(name: string, filename: string): string {
+  return `${BASE}/collections/${encodeURIComponent(name)}/images/${encodeURIComponent(filename)}?download=1`;
+}
+
+async function _triggerDownload(res: Response, defaultFilename: string): Promise<void> {
+  const disposition = res.headers.get("Content-Disposition");
+  const match = disposition?.match(/filename="?(.+?)"?$/);
+  const filename = match?.[1] ?? defaultFilename;
+
+  const blob = await res.blob();
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}

@@ -1,16 +1,18 @@
 import { useState } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { getCollection, deleteCollection } from "@/shared/api/client";
+import { getCollection, deleteCollection, downloadCollection, getImageDownloadUrl } from "@/shared/api/client";
 import { ImageGrid } from "@/widgets/image-grid/image-grid";
 import { Lightbox } from "@/widgets/lightbox/lightbox";
 import { Button } from "@/shared/ui/button";
 import { Badge } from "@/shared/ui/badge";
 import {
   ArrowLeft,
+  Download,
   Loader2,
   Trash2,
   AlertCircle,
+  X,
 } from "lucide-react";
 
 export function CollectionPage() {
@@ -35,6 +37,46 @@ export function CollectionPage() {
       navigate("/gallery");
     },
   });
+
+  // ── Selection & download ──────────────────────────────────────────────
+
+  const [selectedIndices, setSelectedIndices] = useState<Set<number>>(new Set());
+
+  const images = (data?.images ?? []).map((img) => ({
+    url: img.path,
+    label: img.filename,
+    filename: img.filename,
+  }));
+
+  const handleDownloadOne = (index: number) => {
+    const img = images[index];
+    if (!img) return;
+    const url = getImageDownloadUrl(decoded, img.filename);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = img.filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+  };
+
+  const handleDownloadSelected = async () => {
+    const files = Array.from(selectedIndices).map((i) => images[i]?.filename).filter(Boolean);
+    try {
+      await downloadCollection(decoded, files);
+    } catch {
+      // silent
+    }
+  };
+
+  const handleDownloadAll = async () => {
+    const files = images.map((img) => img.filename).filter(Boolean);
+    try {
+      await downloadCollection(decoded, files);
+    } catch {
+      // silent
+    }
+  };
 
   if (isLoading) {
     return (
@@ -61,11 +103,6 @@ export function CollectionPage() {
     );
   }
 
-  const images = data.images.map((img) => ({
-    url: img.path,
-    label: img.filename,
-  }));
-
   return (
     <div className="mx-auto max-w-6xl px-4 py-8">
       {/* Header */}
@@ -86,7 +123,12 @@ export function CollectionPage() {
             </Badge>
           </div>
 
-          <div className="relative">
+          <div className="flex items-center gap-2">
+            <Button variant="secondary" size="sm" onClick={handleDownloadAll}>
+              <Download className="h-3.5 w-3.5" />
+              Download all
+            </Button>
+            <div className="relative">
             <Button
               variant="danger"
               size="sm"
@@ -127,6 +169,7 @@ export function CollectionPage() {
               </div>
             )}
           </div>
+          </div>
         </div>
       </div>
 
@@ -139,6 +182,10 @@ export function CollectionPage() {
         <ImageGrid
           images={images}
           onImageClick={(idx) => setLightboxIndex(idx)}
+          selectable
+          selectedIndices={selectedIndices}
+          onSelectionChange={setSelectedIndices}
+          onDownload={handleDownloadOne}
         />
       )}
 
@@ -149,7 +196,31 @@ export function CollectionPage() {
           currentIndex={lightboxIndex}
           onClose={() => setLightboxIndex(null)}
           onNavigate={setLightboxIndex}
+          onDownload={handleDownloadOne}
         />
+      )}
+
+      {/* Floating selection bar */}
+      {selectedIndices.size > 0 && (
+        <div className="fixed bottom-6 left-1/2 z-40 -translate-x-1/2 animate-fade-in">
+          <div className="glass rounded-2xl px-5 py-3 flex items-center gap-4 shadow-xl border border-accent-500/20">
+            <span className="text-sm text-neutral-300">
+              {selectedIndices.size} selected
+            </span>
+            <div className="flex items-center gap-2">
+              <Button variant="primary" size="sm" onClick={handleDownloadSelected}>
+                <Download className="h-3.5 w-3.5" />
+                Download selected
+              </Button>
+              <button
+                onClick={() => setSelectedIndices(new Set())}
+                className="flex h-8 w-8 items-center justify-center rounded-full text-neutral-500 hover:text-neutral-300 hover:bg-white/5 transition-colors"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

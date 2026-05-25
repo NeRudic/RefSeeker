@@ -10,16 +10,29 @@ import { Lightbox } from "@/widgets/lightbox/lightbox";
 import {
   subscribeToSession,
   getSession,
+  downloadCollection,
+  getImageDownloadUrl,
   type PipelineEvent,
 } from "@/shared/api/client";
 import { Badge } from "@/shared/ui/badge";
-import { ArrowLeft, Loader2, AlertCircle, AlertTriangle, Timer } from "lucide-react";
+import { Button } from "@/shared/ui/button";
+import {
+  ArrowLeft,
+  Download,
+  Loader2,
+  AlertCircle,
+  AlertTriangle,
+  Timer,
+  X,
+} from "lucide-react";
 
 interface TrackedImage {
   /** Original remote URL used as unique identifier */
   id: string;
   /** Display URL for approved image */
   displayUrl: string;
+  /** Image filename for download */
+  filename: string;
   /** Label for the image card */
   label: string;
 }
@@ -48,6 +61,7 @@ export function SearchPage() {
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [elapsed, setElapsed] = useState(0);
+  const [selectedIndices, setSelectedIndices] = useState<Set<number>>(new Set());
   const finishedRef = useRef(false);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const startTimeRef = useRef<number | null>(null);
@@ -193,6 +207,7 @@ export function SearchPage() {
           {
             id: data.url as string,
             displayUrl: data.path as string,
+            filename: ((data.path as string).split("/").pop() ?? "") as string,
             label: `#${prev.length + 1}`,
           },
         ]);
@@ -231,6 +246,50 @@ export function SearchPage() {
     }
   }, []);
 
+  // ── Download handlers ────────────────────────────────────────────────
+
+  const collectionName = sessionState.query ?? "";
+
+  const handleDownloadOne = useCallback(
+    (index: number) => {
+      const img = images[index];
+      if (!img || !collectionName) return;
+      const url = getImageDownloadUrl(collectionName, img.filename);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = img.filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+    },
+    [images, collectionName],
+  );
+
+  const handleDownloadSelected = useCallback(async () => {
+    if (selectedIndices.size === 0 || !collectionName) return;
+    const files = Array.from(selectedIndices).map((i) => images[i]?.filename).filter(Boolean) as string[];
+    try {
+      await downloadCollection(collectionName, files);
+    } catch {
+      // silent
+    }
+  }, [selectedIndices, images, collectionName]);
+
+  const handleDownloadAll = useCallback(async () => {
+    if (!collectionName) return;
+    const files = images.map((img) => img.filename).filter(Boolean) as string[];
+    try {
+      await downloadCollection(collectionName, files);
+    } catch {
+      // silent
+    }
+  }, [images, collectionName]);
+
+  // Clear selection when images change (new session)
+  useEffect(() => {
+    setSelectedIndices(new Set());
+  }, [images.length]);
+
   if (isLoading) {
     return (
       <div className="flex min-h-[calc(100vh-3.5rem)] items-center justify-center">
@@ -253,7 +312,7 @@ export function SearchPage() {
         <h1 className="text-2xl font-bold text-neutral-100">
           {sessionState.query ?? "Searching..."}
         </h1>
-        <div className="flex items-center gap-2 mt-2">
+        <div className="flex items-center gap-2 mt-2 flex-wrap">
           <Badge variant={finished ? "success" : "info"}>
             {finished ? "Complete" : "In progress"}
           </Badge>
@@ -271,6 +330,17 @@ export function SearchPage() {
                   : `${Math.floor(elapsed / 60)}:${String(elapsed % 60).padStart(2, "0")}`}
               </span>
             </div>
+          )}
+          {collectionName && images.length > 0 && (
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={handleDownloadAll}
+              className="ml-auto"
+            >
+              <Download className="h-3.5 w-3.5" />
+              Download all
+            </Button>
           )}
           {sessionState.blacklist && sessionState.blacklist.length > 0 && (
             <div className="flex items-center gap-1 text-xs text-amber-400/80 ml-1">
@@ -334,10 +404,15 @@ export function SearchPage() {
                 url: img.displayUrl,
                 status: "approved",
                 label: img.label,
+                filename: img.filename,
               }))}
               onImageClick={(idx) => {
                 setLightboxIndex(idx);
               }}
+              selectable
+              selectedIndices={selectedIndices}
+              onSelectionChange={setSelectedIndices}
+              onDownload={handleDownloadOne}
             />
           )}
         </div>
@@ -349,11 +424,36 @@ export function SearchPage() {
           images={images.map((img, i) => ({
             url: img.displayUrl,
             label: `Approved image #${i + 1}`,
+            filename: img.filename,
           }))}
           currentIndex={lightboxIndex}
           onClose={() => setLightboxIndex(null)}
           onNavigate={setLightboxIndex}
+          onDownload={handleDownloadOne}
         />
+      )}
+
+      {/* Floating selection bar */}
+      {selectedIndices.size > 0 && (
+        <div className="fixed bottom-6 left-1/2 z-40 -translate-x-1/2 animate-fade-in">
+          <div className="glass rounded-2xl px-5 py-3 flex items-center gap-4 shadow-xl border border-accent-500/20">
+            <span className="text-sm text-neutral-300">
+              {selectedIndices.size} selected
+            </span>
+            <div className="flex items-center gap-2">
+              <Button variant="primary" size="sm" onClick={handleDownloadSelected}>
+                <Download className="h-3.5 w-3.5" />
+                Download selected
+              </Button>
+              <button
+                onClick={() => setSelectedIndices(new Set())}
+                className="flex h-8 w-8 items-center justify-center rounded-full text-neutral-500 hover:text-neutral-300 hover:bg-white/5 transition-colors"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

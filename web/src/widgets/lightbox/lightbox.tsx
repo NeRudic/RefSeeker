@@ -1,11 +1,12 @@
 import { useEffect, useCallback } from "react";
-import { X, ChevronLeft, ChevronRight } from "lucide-react";
+import { X, ChevronLeft, ChevronRight, Download } from "lucide-react";
 
 interface LightboxProps {
-  images: { url: string; label?: string }[];
+  images: { url: string; label?: string; filename?: string }[];
   currentIndex: number;
   onClose: () => void;
   onNavigate: (index: number) => void;
+  onDownload?: (index: number) => void;
 }
 
 export function Lightbox({
@@ -13,6 +14,7 @@ export function Lightbox({
   currentIndex,
   onClose,
   onNavigate,
+  onDownload,
 }: LightboxProps) {
   const current = images[currentIndex];
 
@@ -45,13 +47,27 @@ export function Lightbox({
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm animate-fade-in"
       onClick={onClose}
     >
-      {/* Close button */}
-      <button
-        onClick={onClose}
-        className="absolute top-4 right-4 z-10 flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-white hover:bg-white/20 transition-colors"
-      >
-        <X className="h-5 w-5" />
-      </button>
+      {/* Top bar */}
+      <div className="absolute top-4 right-4 z-10 flex items-center gap-2">
+        {onDownload && (
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              onDownload(currentIndex);
+            }}
+            className="flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-white hover:bg-accent-500 transition-colors"
+            title="Download"
+          >
+            <Download className="h-5 w-5" />
+          </button>
+        )}
+        <button
+          onClick={onClose}
+          className="flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-white hover:bg-white/20 transition-colors"
+        >
+          <X className="h-5 w-5" />
+        </button>
+      </div>
 
       {/* Counter */}
       <div className="absolute top-4 left-4 z-10 glass rounded-full px-4 py-2 text-xs text-neutral-400">
