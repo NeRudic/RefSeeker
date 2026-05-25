@@ -5,6 +5,9 @@ from collections import Counter
 from dataclasses import dataclass, field
 
 
+from .config import COLLECTION_FOLDER_MAX_LENGTH, MAX_IMAGES_DEFAULT
+
+
 def _sanitize_folder_name(name: str) -> str:
     name = name.strip().lower()
     clean = re.sub(r'[\\/*?:"<>| .]', '_', name)
@@ -12,7 +15,7 @@ def _sanitize_folder_name(name: str) -> str:
     clean = clean.strip('_')
     if not clean or clean in ('', '.', '..', '__'):
         return 'other'
-    return clean[:40]
+    return clean[:COLLECTION_FOLDER_MAX_LENGTH]
 
 
 @dataclass
@@ -21,7 +24,7 @@ class CollectionState:
     query_folder: str = ""
     output_dir: str = ""
     saved_count: int = 0
-    max_images: int = 50
+    max_images: int = MAX_IMAGES_DEFAULT
     blacklist: list[str] = field(default_factory=list)
     downloaded_urls: set[str] = field(default_factory=set)
     filter_stats: Counter = field(default_factory=Counter)
@@ -32,7 +35,7 @@ class CollectionState:
     gpt_calls: int = 0
     download_attempts: int = 0
 
-    def reset(self, query: str, max_images: int = 50, blacklist: list[str] | None = None, collection_id: str | None = None) -> None:
+    def reset(self, query: str, max_images: int = MAX_IMAGES_DEFAULT, blacklist: list[str] | None = None, collection_id: str | None = None) -> None:
         self.query_name = query
         base_folder = _sanitize_folder_name(query)
         self.query_folder = f"{base_folder}_{collection_id[:8]}" if collection_id else base_folder

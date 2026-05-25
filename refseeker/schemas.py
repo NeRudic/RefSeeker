@@ -3,6 +3,8 @@ from datetime import date, datetime
 import uuid
 from typing import Optional
 
+from .config import MAX_IMAGES_DEFAULT
+
 
 # ── Auth ────────────────────────────────────────────────────────────────
 
@@ -105,7 +107,7 @@ class MeResponse(BaseModel):
     usage_today: int = 0
     daily_limit: int = 1
     remaining: int = 0
-    max_images: int = 50
+    max_images: int = MAX_IMAGES_DEFAULT
 
 
 # ── Usage Dashboard ────────────────────────────────────────────────────

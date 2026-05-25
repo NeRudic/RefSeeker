@@ -7,6 +7,7 @@ import httpx
 from .config import (
     DOWNLOAD_CONCURRENCY,
     DOWNLOAD_USER_AGENT,
+    MAX_IMAGES_DEFAULT,
     MIN_IMAGE_DIM,
     SEARCH_QUERY_VARIANTS,
     SERPER_COUNT,
@@ -106,7 +107,7 @@ async def _download_one(url: str, sem: asyncio.Semaphore, progress_tracker=None)
         return (url, mime_type, image_bytes, width, height)
 
 
-async def run_agent(query: str, max_images: int = 50, progress_tracker=None, blacklist: list[str] | None = None, collection_id: str | None = None) -> None:
+async def run_agent(query: str, max_images: int = MAX_IMAGES_DEFAULT, progress_tracker=None, blacklist: list[str] | None = None, collection_id: str | None = None) -> None:
     state.reset(query, max_images, blacklist, collection_id=collection_id)
     os.makedirs(state.output_dir, exist_ok=True)
 

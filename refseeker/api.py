@@ -15,7 +15,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from .admin import router as admin_router
 from .agent import run_agent
 from .auth import create_access_token, create_refresh_token, decode_token, get_client_ip, get_current_user, get_optional_user, hash_password, verify_password
-from .config import IMAGE_BLACKLIST, logger, update_image_blacklist
+from .config import IMAGE_BLACKLIST, MAX_IMAGES_DEFAULT, logger, update_image_blacklist
 from .database import async_session_factory, engine, get_db
 from .models import Collection, User
 from .progress import ProgressTracker
@@ -59,7 +59,7 @@ app.add_middleware(
 
 class CreateSessionRequest(BaseModel):
     query: str
-    max_images: int = 50
+    max_images: int = MAX_IMAGES_DEFAULT
     blacklist: list[str] = []
 
 

@@ -14,7 +14,8 @@
         "retries_gemini": 3,
         "retries_mistral": 2,
         "max_tokens_base": 500,
-        "max_tokens_per_image": 150
+        "max_tokens_per_image": 150,
+        "max_tokens_cap": 8192
     },
 
     "pipeline": {
@@ -29,6 +30,9 @@
         "min_disk_mb": 100,
         "serper_url": "https://google.serper.dev/images",
         "serper_count": 100,
+        "max_images": 50,
+        "collection_folder_max_length": 40,
+        "sse_queue_timeout": 30,
         "search_query_variants": [
             "{query} walkaround",
             "{query} reference photos"

@@ -14,6 +14,9 @@ from .config import (
     GEMINI_API_KEY,
     MISTRAL_API_KEY,
     MISTRAL_MAX_IMAGES,
+    MAX_TOKENS_BASE,
+    MAX_TOKENS_CAP,
+    MAX_TOKENS_PER_IMAGE,
     PROVIDER_CONFIG,
     RETRIES_GEMINI,
     RETRIES_MISTRAL,
@@ -48,7 +51,7 @@ def _get_mistral_client():
 
 # ── Shared prompt builder ──────────────────────────────────────────
 
-def _build_verification_prompt(candidates, max_tokens_base=500, max_tokens_per_image=150):
+def _build_verification_prompt(candidates, max_tokens_base=MAX_TOKENS_BASE, max_tokens_per_image=MAX_TOKENS_PER_IMAGE):
     """Build prompt text + PIL images + raw resize bytes + max_tokens for a batch of candidates."""
     blacklist_section = ""
     blacklist_field = ""
@@ -75,7 +78,7 @@ def _build_verification_prompt(candidates, max_tokens_base=500, max_tokens_per_i
         resized_images.append(resized_bytes)
 
     max_tokens = min(
-        8192,
+        MAX_TOKENS_CAP,
         max_tokens_base + len(candidates) * max_tokens_per_image,
     )
 
@@ -288,8 +291,8 @@ async def _verify_task(candidates, provider_cfg, progress_tracker, lock, fallbac
             chunk = candidates[chunk_start:chunk_start + MISTRAL_MAX_IMAGES]
             prompt, pil_images, resized_images, max_tokens = _build_verification_prompt(
                 chunk,
-                max_tokens_base=provider_cfg.get("max_tokens_base", 500),
-                max_tokens_per_image=provider_cfg.get("max_tokens_per_image", 150),
+                max_tokens_base=provider_cfg.get("max_tokens_base", MAX_TOKENS_BASE),
+                max_tokens_per_image=provider_cfg.get("max_tokens_per_image", MAX_TOKENS_PER_IMAGE),
             )
             parsed = await _call_mistral(prompt, resized_images, max_tokens, provider_cfg["name"])
 
@@ -322,8 +325,8 @@ async def _verify_task(candidates, provider_cfg, progress_tracker, lock, fallbac
 
     prompt, pil_images, _, max_tokens = _build_verification_prompt(
         candidates,
-        max_tokens_base=provider_cfg.get("max_tokens_base", 500),
-        max_tokens_per_image=provider_cfg.get("max_tokens_per_image", 150),
+        max_tokens_base=provider_cfg.get("max_tokens_base", MAX_TOKENS_BASE),
+        max_tokens_per_image=provider_cfg.get("max_tokens_per_image", MAX_TOKENS_PER_IMAGE),
     )
 
     if provider_cfg["adapter"] == "gemini":

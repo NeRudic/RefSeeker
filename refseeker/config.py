@@ -90,6 +90,7 @@ RETRIES_GEMINI: int = _models.get("retries_gemini", 3)
 RETRIES_MISTRAL: int = _models.get("retries_mistral", 2)
 MAX_TOKENS_BASE: int = _models.get("max_tokens_base", 500)
 MAX_TOKENS_PER_IMAGE: int = _models.get("max_tokens_per_image", 150)
+MAX_TOKENS_CAP: int = _models.get("max_tokens_cap", 8192)
 
 # ── Pipeline settings ─────────────────────────────────────────────
 _pipeline = _CONFIG.get("pipeline", {})
@@ -112,6 +113,9 @@ SEARCH_QUERY_VARIANTS: list[str] = _pipeline.get(
     "search_query_variants",
     ["{query} walkaround", "{query} reference photos"],
 )
+MAX_IMAGES_DEFAULT: int = _pipeline.get("max_images", 50)
+COLLECTION_FOLDER_MAX_LENGTH: int = _pipeline.get("collection_folder_max_length", 40)
+SSE_QUEUE_TIMEOUT: int = _pipeline.get("sse_queue_timeout", 30)
 RATE_LIMITS: dict[str, int] = _pipeline.get("rate_limits", {
     "unauthenticated": 1,
     "free": 2,
@@ -119,6 +123,9 @@ RATE_LIMITS: dict[str, int] = _pipeline.get("rate_limits", {
     "premium": 1100,
     "admin": -1,
 })
+
+# ── Admin ─────────────────────────────────────────────────────────
+DEFAULT_USAGE_DAYS: int = 30
 
 # ── HTTP ──────────────────────────────────────────────────────────
 LOG_FILE = "refseeker.log"

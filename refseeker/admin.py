@@ -7,6 +7,7 @@ from sqlalchemy import Date, cast, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from .auth import get_current_user, require_admin
+from .config import DEFAULT_USAGE_DAYS
 from .database import get_db
 from .models import Collection, RequestLog, User
 from .rate_limit import get_daily_limit, get_usage_today
@@ -92,7 +93,7 @@ async def update_user_role(
 def _default_date_range() -> tuple[date, date]:
     """Default to last 30 days if no range specified."""
     today = date.today()
-    return today - timedelta(days=29), today
+    return today - timedelta(days=DEFAULT_USAGE_DAYS - 1), today
 
 
 @router.get("/usage/summary", response_model=UsageSummaryResponse)

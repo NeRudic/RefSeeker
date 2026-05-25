@@ -3,6 +3,8 @@ import json
 import time
 from dataclasses import dataclass, field
 
+from .config import SSE_QUEUE_TIMEOUT
+
 
 @dataclass
 class PipelineEvent:
@@ -76,7 +78,7 @@ class ProgressTracker:
         Exits when session completes or errors."""
         while not self._finished:
             try:
-                event = await asyncio.wait_for(self._queue.get(), timeout=30.0)
+                event = await asyncio.wait_for(self._queue.get(), timeout=SSE_QUEUE_TIMEOUT)
                 yield event.serialize()
                 if event.type in ("session.complete", "session.error"):
                     return
