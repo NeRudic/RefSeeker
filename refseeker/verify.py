@@ -11,11 +11,13 @@ import PIL.Image
 from google import genai
 
 from .config import (
-    GPT_MAX_TOKENS_BASE,
-    GPT_MAX_TOKENS_PER_IMAGE,
     GEMINI_API_KEY,
     MISTRAL_API_KEY,
+    MISTRAL_MAX_IMAGES,
     PROVIDER_CONFIG,
+    RETRIES_GEMINI,
+    RETRIES_MISTRAL,
+    VERIFICATION_PROMPT_TEMPLATE,
     logger,
 )
 from .image import (
@@ -46,7 +48,7 @@ def _get_mistral_client():
 
 # ── Shared prompt builder ──────────────────────────────────────────
 
-def _build_verification_prompt(candidates):
+def _build_verification_prompt(candidates, max_tokens_base=500, max_tokens_per_image=150):
     """Build prompt text + PIL images + raw resize bytes + max_tokens for a batch of candidates."""
     blacklist_section = ""
     blacklist_field = ""
@@ -58,22 +60,11 @@ def _build_verification_prompt(candidates):
         )
         blacklist_field = f'"unwanted_content": false, '
 
-    prompt = (
-        f'You are checking if images are suitable as high-quality reference photos for: '
-        f'"{state.query_name}".\n\n'
-        f'There are {len(candidates)} images attached. For EACH image, determine:\n'
-        f'1. Is it relevant to "{state.query_name}"?\n'
-        f'2. Is it high quality (sharp, detailed, not blurry, not pixelated)?\n'
-        f'3. Is it watermarked or does it contain prominent text overlays '
-        f'(excluding tiny photographer signatures)?\n'
-        f'{blacklist_section}'
-        f'Respond ONLY with a JSON object containing an "evaluations" array. '
-        f'One object per image, in the SAME order. '
-        f'Keep each reason under 5 words.\n\n'
-        f'{{"evaluations": [{{"index": 0, "relevant": true, "high_quality": true, '
-        f'"watermarked": false, '
-        f'{blacklist_field}'
-        f'"reason": "clear side view"}}]}}'
+    prompt = VERIFICATION_PROMPT_TEMPLATE.format(
+        query=state.query_name,
+        count=len(candidates),
+        blacklist_section=blacklist_section,
+        blacklist_field=blacklist_field,
     )
 
     pil_images = []
@@ -85,7 +76,7 @@ def _build_verification_prompt(candidates):
 
     max_tokens = min(
         8192,
-        GPT_MAX_TOKENS_BASE + len(candidates) * GPT_MAX_TOKENS_PER_IMAGE,
+        max_tokens_base + len(candidates) * max_tokens_per_image,
     )
 
     return prompt, pil_images, resized_images, max_tokens
@@ -97,7 +88,7 @@ async def _call_gemini(prompt, pil_images, max_tokens):
     """Call Gemini 2.5 Flash via google.genai. Returns parsed dict or None on failure."""
     client = _get_gemini_client()
     state.gpt_calls += 1
-    max_retries = 3
+    max_retries = RETRIES_GEMINI
 
     def _sync_call():
         return client.models.generate_content(
@@ -162,7 +153,7 @@ async def _call_mistral(prompt, resized_images, max_tokens, model_id):
             max_tokens=max_tokens,
         )
 
-    max_retries = 2
+    max_retries = RETRIES_MISTRAL
     for attempt in range(max_retries):
         try:
             response = await asyncio.to_thread(_sync_call)
@@ -285,9 +276,6 @@ async def _process_evaluations(evaluations, candidates, progress_tracker, lock):
 
 # ── Per-provider verification task ─────────────────────────────────
 
-MISTRAL_MAX_IMAGES = 8
-
-
 async def _verify_task(candidates, provider_cfg, progress_tracker, lock, fallback_queue) -> bool:
     """Process a group of candidates through a single provider.
     Returns True if all chunks were processed successfully, False otherwise.
@@ -298,7 +286,11 @@ async def _verify_task(candidates, provider_cfg, progress_tracker, lock, fallbac
     if provider_cfg["adapter"] == "mistral":
         for chunk_start in range(0, len(candidates), MISTRAL_MAX_IMAGES):
             chunk = candidates[chunk_start:chunk_start + MISTRAL_MAX_IMAGES]
-            prompt, pil_images, resized_images, max_tokens = _build_verification_prompt(chunk)
+            prompt, pil_images, resized_images, max_tokens = _build_verification_prompt(
+                chunk,
+                max_tokens_base=provider_cfg.get("max_tokens_base", 500),
+                max_tokens_per_image=provider_cfg.get("max_tokens_per_image", 150),
+            )
             parsed = await _call_mistral(prompt, resized_images, max_tokens, provider_cfg["name"])
 
             if parsed is None:
@@ -328,7 +320,11 @@ async def _verify_task(candidates, provider_cfg, progress_tracker, lock, fallbac
             )
         return True
 
-    prompt, pil_images, _, max_tokens = _build_verification_prompt(candidates)
+    prompt, pil_images, _, max_tokens = _build_verification_prompt(
+        candidates,
+        max_tokens_base=provider_cfg.get("max_tokens_base", 500),
+        max_tokens_per_image=provider_cfg.get("max_tokens_per_image", 150),
+    )
 
     if provider_cfg["adapter"] == "gemini":
         parsed = await _call_gemini(prompt, pil_images, max_tokens)

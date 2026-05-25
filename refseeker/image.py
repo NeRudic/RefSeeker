@@ -6,7 +6,7 @@ from io import BytesIO
 
 from PIL import Image
 
-from .config import JPEG_QUALITY, RESIZE_DIM, logger
+from .config import JPEG_QUALITY, MIN_DISK_MB, RESIZE_DIM, logger
 
 
 def _detect_mime_type(image_bytes: bytes) -> str:
@@ -148,7 +148,9 @@ def _validate_image(image_bytes: bytes) -> tuple[bool, int, int]:
         return False, 0, 0
 
 
-def _check_disk_space(path: str, min_free_mb: int = 100) -> bool:
+def _check_disk_space(path: str, min_free_mb: int | None = None) -> bool:
+    if min_free_mb is None:
+        min_free_mb = MIN_DISK_MB
     try:
         usage = shutil.disk_usage(path)
         return usage.free >= min_free_mb * 1024 * 1024

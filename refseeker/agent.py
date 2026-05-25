@@ -4,7 +4,16 @@ import os
 
 import httpx
 
-from .config import BATCH_SIZE, DOWNLOAD_CONCURRENCY, MIN_IMAGE_DIM, PROVIDER_CONFIG, URLLIB_TIMEOUT, logger
+from .config import (
+    DOWNLOAD_CONCURRENCY,
+    DOWNLOAD_USER_AGENT,
+    MIN_IMAGE_DIM,
+    SEARCH_QUERY_VARIANTS,
+    SERPER_COUNT,
+    URLLIB_TIMEOUT,
+    VERIFY_BATCH_SIZE,
+    logger,
+)
 from .image import (
     _detect_mime_type,
     _has_null_byte,
@@ -17,17 +26,9 @@ from .searcher import search_images
 from .state import state
 from .verify import _verify_and_save
 
-_DOWNLOAD_HEADERS = {
-    "User-Agent": (
-        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-        "AppleWebKit/537.36 (KHTML, like Gecko) "
-        "Chrome/120.0.0.0 Safari/537.36"
-    ),
-}
-
 _HTTP_CLIENT = httpx.AsyncClient(
     timeout=httpx.Timeout(URLLIB_TIMEOUT, connect=5.0),
-    headers=_DOWNLOAD_HEADERS,
+    headers={"User-Agent": DOWNLOAD_USER_AGENT},
     follow_redirects=True,
 )
 
@@ -113,14 +114,11 @@ async def run_agent(query: str, max_images: int = 50, progress_tracker=None, bla
         progress_tracker.search_started(query=query, max_images=max_images)
 
     # 1. Search multiple variants for broader coverage
-    search_queries = [
-        f"{query} walkaround",
-        f"{query} reference photos",
-    ]
+    search_queries = [variant.format(query=query) for variant in SEARCH_QUERY_VARIANTS]
 
     all_urls: list[str] = []
     for q in search_queries:
-        urls = search_images(q, count=100)
+        urls = search_images(q, count=SERPER_COUNT)
         all_urls.extend(urls)
 
     # 2. Deduplicate preserving order
@@ -169,10 +167,6 @@ async def run_agent(query: str, max_images: int = 50, progress_tracker=None, bla
     verify_tasks: list[asyncio.Task] = []
     total_downloaded = 0
 
-    # Flush buffer to verification when we have enough for efficient provider round-robin
-    # 4 providers × 8 images each = 32 total
-    _VERIFY_BATCH = BATCH_SIZE * 2 + 2
-
     async def _flush():
         nonlocal candidates_buffer
         if not candidates_buffer:
@@ -188,7 +182,7 @@ async def run_agent(query: str, max_images: int = 50, progress_tracker=None, bla
             continue
         total_downloaded += 1
         candidates_buffer.append(result)
-        if len(candidates_buffer) >= _VERIFY_BATCH:
+        if len(candidates_buffer) >= VERIFY_BATCH_SIZE:
             await _flush()
 
     logger.info("Downloaded %d valid candidates", total_downloaded)

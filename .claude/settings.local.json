@@ -20,7 +20,8 @@
       "Bash(.venv/Scripts/python -c ' *)",
       "Bash(npm install *)",
       "Bash(node -e ' *)",
-      "WebFetch(domain:mistral.ai)"
+      "WebFetch(domain:mistral.ai)",
+      "Bash(npm view *)"
     ]
   }
 }

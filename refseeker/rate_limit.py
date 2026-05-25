@@ -5,23 +5,14 @@ from fastapi import HTTPException, status
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from .config import logger
+from .config import RATE_LIMITS, logger
 from .models import User
-
-_ROLE_LIMITS: dict[str, int] = {
-    "free": 2,
-    "pro": 100,
-    "premium": 1100,
-    "admin": -1,  # unlimited
-}
-
-_UNAUTHENTICATED_LIMIT = 1
 
 
 def get_daily_limit(user: User | None) -> int:
     if user is None:
-        return _UNAUTHENTICATED_LIMIT
-    return _ROLE_LIMITS.get(user.role, 0)
+        return RATE_LIMITS.get("unauthenticated", 1)
+    return RATE_LIMITS.get(user.role, 0)
 
 
 async def get_usage_today(user: User | None, ip: str, db: AsyncSession) -> int:

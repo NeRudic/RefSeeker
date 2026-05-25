@@ -1,20 +1,15 @@
-import os
-
 import httpx
 
-from .config import logger
-
-SERPER_URL = "https://google.serper.dev/images"
+from .config import SERPER_API_KEY, SERPER_URL, logger
 
 _SERPER_CLIENT = httpx.Client(timeout=httpx.Timeout(15.0, connect=5.0))
 
 
 def _get_serper_api_key() -> str:
-    api_key = os.getenv("SERPER_API_KEY")
-    if not api_key:
+    if not SERPER_API_KEY:
         logger.critical("SERPER_API_KEY is not set. Add it to your .env file.")
         raise RuntimeError("SERPER_API_KEY is not set")
-    return api_key
+    return SERPER_API_KEY
 
 
 def search_images(query: str, count: int = 100) -> list[str]:

@@ -1,3 +1,45 @@
 {
-    "image_blacklist": []
+    "image_blacklist": [
+    ],
+    "verification_prompt": "You are checking if images are suitable as high-quality reference photos for: \"{query}\".\n\nThere are {count} images attached. For EACH image, determine:\n1. Is it relevant to \"{query}\"?\n2. Is it high quality (sharp, detailed, not blurry, not pixelated)?\n3. Is it watermarked or does it contain prominent text overlays (excluding tiny photographer signatures)?\n{blacklist_section}Respond ONLY with a JSON object containing an \"evaluations\" array. One object per image, in the SAME order. Keep each reason under 5 words.\n\n{{\"evaluations\": [{{\"index\": 0, \"relevant\": true, \"high_quality\": true, \"watermarked\": false, {blacklist_field}\"reason\": \"clear side view\"}}]}}",
+
+    "models": {
+        "providers": [
+            {"name": "mistral-large-2512", "adapter": "mistral", "max_tokens_base": 500, "max_tokens_per_image": 150},
+            {"name": "pixtral-large-2411", "adapter": "mistral", "max_tokens_base": 500, "max_tokens_per_image": 150},
+            {"name": "ministral-14b-2512", "adapter": "mistral", "max_tokens_base": 500, "max_tokens_per_image": 150},
+            {"name": "ministral-8b-2512", "adapter": "mistral", "max_tokens_base": 500, "max_tokens_per_image": 150}
+        ],
+        "mistral_max_images": 8,
+        "retries_gemini": 3,
+        "retries_mistral": 2,
+        "max_tokens_base": 500,
+        "max_tokens_per_image": 150
+    },
+
+    "pipeline": {
+        "batch_size": 15,
+        "verify_batch_size": 32,
+        "download_concurrency": 15,
+        "download_timeout": 10,
+        "download_user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+        "min_image_dim": 300,
+        "resize_dim": 768,
+        "jpeg_quality": 85,
+        "min_disk_mb": 100,
+        "serper_url": "https://google.serper.dev/images",
+        "serper_count": 100,
+        "search_query_variants": [
+            "{query} walkaround",
+            "{query} reference photos"
+        ],
+
+        "rate_limits": {
+            "unauthenticated": 1,
+            "free": 2,
+            "pro": 100,
+            "premium": 1100,
+            "admin": -1
+        }
+    }
 }
