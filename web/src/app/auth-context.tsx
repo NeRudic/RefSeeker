@@ -64,13 +64,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => window.removeEventListener("auth:logout", handleLogout);
   }, []);
 
+  const _computeRemaining = (limit: number, used: number) =>
+    limit === -1 ? 999999 : Math.max(0, limit - used);
+
   const login = useCallback(async (data: LoginRequest) => {
     const result = await loginUser(data);
     localStorage.setItem("access_token", result.access_token);
     localStorage.setItem("refresh_token", result.refresh_token);
     setUser(result.user);
     const limit = result.user.daily_limit;
-    setRateLimit({ remaining: Math.max(0, limit - result.user.usage_today), limit, used: result.user.usage_today });
+    setRateLimit({ remaining: _computeRemaining(limit, result.user.usage_today), limit, used: result.user.usage_today });
   }, []);
 
   const register = useCallback(async (data: RegisterRequest) => {
@@ -79,7 +82,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     localStorage.setItem("refresh_token", result.refresh_token);
     setUser(result.user);
     const limit = result.user.daily_limit;
-    setRateLimit({ remaining: Math.max(0, limit - result.user.usage_today), limit, used: result.user.usage_today });
+    setRateLimit({ remaining: _computeRemaining(limit, result.user.usage_today), limit, used: result.user.usage_today });
   }, []);
 
   const logout = useCallback(() => {
