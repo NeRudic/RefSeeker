@@ -7,6 +7,7 @@ import httpx
 from .config import (
     DOWNLOAD_CONCURRENCY,
     DOWNLOAD_USER_AGENT,
+    IMAGE_BLACKLIST,
     MAX_IMAGES_DEFAULT,
     MIN_IMAGE_DIM,
     SEARCH_QUERY_VARIANTS,
@@ -108,7 +109,10 @@ async def _download_one(url: str, sem: asyncio.Semaphore, progress_tracker=None)
 
 
 async def run_agent(query: str, max_images: int = MAX_IMAGES_DEFAULT, progress_tracker=None, blacklist: list[str] | None = None, collection_id: str | None = None) -> None:
-    state.reset(query, max_images, blacklist, collection_id=collection_id)
+    # Merge session blacklist with global IMAGE_BLACKLIST from config.json
+    session_blacklist = blacklist or []
+    combined_blacklist = list(set(session_blacklist + IMAGE_BLACKLIST))
+    state.reset(query, max_images, combined_blacklist, collection_id=collection_id)
     os.makedirs(state.output_dir, exist_ok=True)
 
     if progress_tracker:
