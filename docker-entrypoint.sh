@@ -5,8 +5,7 @@ echo "=== Waiting for PostgreSQL ==="
 python -c "
 import asyncio, asyncpg, os, sys
 
-url = os.environ['DATABASE_URL'].replace('+asyncpg', '')
-dsn = url.replace('postgresql://', '')
+dsn = os.environ['DATABASE_URL'].replace('+asyncpg', '')
 
 async def wait():
     for i in range(30):
@@ -24,7 +23,7 @@ asyncio.run(wait())
 "
 
 echo "=== Running database migrations ==="
-alembic upgrade head
+python -m alembic upgrade head
 
 echo "=== Starting uvicorn ==="
-exec uvicorn refseeker.api:app --host 0.0.0.0 --port 8000
+exec python -m uvicorn refseeker.api:app --host 0.0.0.0 --port 8000
