@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useAuth } from "@/app/auth-context";
-import { Shield, Loader2, Check, BarChart3, Users as UsersIcon } from "lucide-react";
+import { motion } from "framer-motion";
+import { Shield, Loader2, Check, BarChart3, Users } from "lucide-react";
 import { cn } from "@/shared/lib/cn";
 import { AdminDashboard } from "@/widgets/admin-dashboard/AdminDashboard";
 import type { UserRole, AdminUser } from "@/entities/user";
@@ -38,15 +39,15 @@ async function updateUserRole(userId: string, role: UserRole): Promise<AdminUser
 const ROLE_OPTIONS: UserRole[] = ["free", "pro", "premium", "admin"];
 
 const ROLE_COLORS: Record<UserRole, string> = {
-  free: "bg-neutral-500/10 text-neutral-400 border-neutral-500/20",
-  pro: "bg-blue-500/10 text-blue-400 border-blue-500/20",
-  premium: "bg-purple-500/10 text-purple-400 border-purple-500/20",
-  admin: "bg-red-500/10 text-red-400 border-red-500/20",
+  free: "bg-white/[0.04] text-text-secondary border-border",
+  pro: "bg-blue-500/8 text-blue-400 border-blue-500/15",
+  premium: "bg-purple-500/8 text-purple-400 border-purple-500/15",
+  admin: "bg-red-500/8 text-red-400 border-red-500/15",
 };
 
 const TABS = [
-  { key: "users", label: "Users", icon: UsersIcon },
   { key: "dashboard", label: "Dashboard", icon: BarChart3 },
+  { key: "users", label: "Users", icon: Users },
 ] as const;
 
 type Tab = (typeof TABS)[number]["key"];
@@ -94,63 +95,66 @@ function UsersTab() {
   return (
     <>
       {error && (
-        <div className="mb-6 glass rounded-xl p-4 border border-red-500/20">
+        <div className="mb-6 glass rounded-xl p-4 border border-red-500/15">
           <p className="text-sm text-red-400">{error}</p>
         </div>
       )}
 
       {loading ? (
         <div className="flex items-center justify-center py-20">
-          <Loader2 className="h-6 w-6 animate-spin text-neutral-500" />
+          <Loader2 className="h-6 w-6 animate-spin text-text-muted" />
         </div>
       ) : users.length === 0 ? (
         <div className="glass rounded-2xl p-12 text-center">
-          <p className="text-neutral-600">No users found.</p>
+          <p className="text-text-muted text-sm">No users found.</p>
         </div>
       ) : (
         <div className="glass rounded-2xl overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b border-white/5">
-                  <th className="text-left px-4 py-3 text-xs font-medium text-neutral-500 uppercase tracking-wider">Email</th>
-                  <th className="text-left px-4 py-3 text-xs font-medium text-neutral-500 uppercase tracking-wider">Role</th>
-                  <th className="text-left px-4 py-3 text-xs font-medium text-neutral-500 uppercase tracking-wider">Usage Today</th>
-                  <th className="text-left px-4 py-3 text-xs font-medium text-neutral-500 uppercase tracking-wider">Daily Limit</th>
-                  <th className="text-left px-4 py-3 text-xs font-medium text-neutral-500 uppercase tracking-wider">Created</th>
+                <tr className="border-b border-border">
+                  <th className="text-left px-4 py-3 text-[11px] font-medium text-text-muted uppercase tracking-wider">Email</th>
+                  <th className="text-left px-4 py-3 text-[11px] font-medium text-text-muted uppercase tracking-wider">Role</th>
+                  <th className="text-left px-4 py-3 text-[11px] font-medium text-text-muted uppercase tracking-wider">Usage</th>
+                  <th className="text-left px-4 py-3 text-[11px] font-medium text-text-muted uppercase tracking-wider">Limit</th>
+                  <th className="text-left px-4 py-3 text-[11px] font-medium text-text-muted uppercase tracking-wider">Created</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-white/5">
+              <tbody className="divide-y divide-border">
                 {users.map((u) => (
-                  <tr key={u.id} className="hover:bg-white/5 transition-colors">
-                    <td className="px-4 py-3 text-neutral-200 font-medium">{u.email}</td>
+                  <tr key={u.id} className="hover:bg-white/[0.02] transition-colors">
+                    <td className="px-4 py-3 text-text-primary font-medium text-xs">{u.email}</td>
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-2">
                         <select
                           value={u.role}
                           onChange={(e) => handleRoleChange(u, e.target.value as UserRole)}
                           disabled={savingId === u.id}
-                          className={`rounded-lg px-2 py-1 text-xs font-medium border transition-colors cursor-pointer ${ROLE_COLORS[u.role]} bg-transparent`}
+                          className={cn(
+                            "rounded-lg px-2 py-1 text-[11px] font-medium border transition-colors cursor-pointer bg-transparent",
+                            ROLE_COLORS[u.role]
+                          )}
                         >
                           {ROLE_OPTIONS.map((role) => (
-                            <option key={role} value={role} className="bg-neutral-900 text-neutral-200">
+                            <option key={role} value={role} className="bg-surface-2 text-text-primary">
                               {role}
                             </option>
                           ))}
                         </select>
-                        {savingId === u.id && <Loader2 className="h-3.5 w-3.5 animate-spin text-neutral-500" />}
-                        {successId === u.id && <Check className="h-3.5 w-3.5 text-green-400" />}
+                        {savingId === u.id && <Loader2 className="h-3 w-3 animate-spin text-text-muted" />}
+                        {successId === u.id && <Check className="h-3 w-3 text-success" />}
                       </div>
                     </td>
                     <td className="px-4 py-3">
-                      <span className="text-neutral-400 tabular-nums">{u.usage_today}</span>
+                      <span className="text-text-secondary tabular-nums text-xs">{u.usage_today}</span>
                     </td>
                     <td className="px-4 py-3">
-                      <span className="text-neutral-400 tabular-nums">
+                      <span className="text-text-secondary tabular-nums text-xs">
                         {u.daily_limit === -1 ? "∞" : u.daily_limit}
                       </span>
                     </td>
-                    <td className="px-4 py-3 text-neutral-500 text-xs">
+                    <td className="px-4 py-3 text-text-muted text-[11px]">
                       {new Date(u.created_at).toLocaleDateString()}
                     </td>
                   </tr>
@@ -170,21 +174,26 @@ export function AdminPage() {
 
   if (user?.role !== "admin") {
     return (
-      <div className="flex min-h-[calc(100vh-3.5rem)] items-center justify-center px-4">
-        <p className="text-neutral-500">Admin access required.</p>
+      <div className="flex min-h-screen items-center justify-center px-4">
+        <p className="text-text-muted text-sm">Admin access required.</p>
       </div>
     );
   }
 
   return (
-    <div className="mx-auto max-w-6xl px-4 py-8">
-      {/* Header */}
-      <div className="flex items-center justify-between mb-8">
+    <div className="mx-auto max-w-6xl px-6 py-8">
+      <motion.div
+        initial={{ opacity: 0, y: -8 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="mb-8"
+      >
         <div className="flex items-center gap-3">
-          <Shield className="h-6 w-6 text-red-400" />
-          <h1 className="text-2xl font-bold text-neutral-100">Admin Panel</h1>
+          <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-red-500/10">
+            <Shield className="h-5 w-5 text-red-400" />
+          </div>
+          <h1 className="text-2xl font-bold text-text-primary">Admin Panel</h1>
         </div>
-      </div>
+      </motion.div>
 
       {/* Tabs */}
       <div className="glass rounded-2xl p-1.5 mb-8 inline-flex">
@@ -195,8 +204,8 @@ export function AdminPage() {
             className={cn(
               "flex items-center gap-2 rounded-xl px-4 py-2 text-xs font-medium transition-all duration-200",
               activeTab === key
-                ? "bg-accent-500/15 text-accent-400 shadow-sm"
-                : "text-neutral-500 hover:text-neutral-300"
+                ? "bg-accent-500/15 text-accent-400"
+                : "text-text-muted hover:text-text-secondary"
             )}
           >
             <Icon className="h-3.5 w-3.5" />
@@ -206,7 +215,7 @@ export function AdminPage() {
       </div>
 
       {/* Content */}
-      {activeTab === "users" ? <UsersTab /> : <AdminDashboard />}
+      {activeTab === "dashboard" ? <AdminDashboard /> : <UsersTab />}
     </div>
   );
 }

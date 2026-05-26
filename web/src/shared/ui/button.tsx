@@ -18,22 +18,22 @@ export function Button({
     <button
       className={cn(
         "inline-flex items-center justify-center gap-2 rounded-xl font-medium transition-all duration-200 select-none",
-        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-500 focus-visible:ring-offset-2 focus-visible:ring-offset-neutral-950",
-        "disabled:opacity-40 disabled:pointer-events-none",
+        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-500/40 focus-visible:ring-offset-2 focus-visible:ring-offset-base-900",
+        "disabled:opacity-30 disabled:pointer-events-none",
         {
           primary:
-            "bg-accent-600 text-white hover:bg-accent-500 active:bg-accent-700 shadow-lg shadow-accent-600/20",
+            "accent-gradient text-white hover:opacity-90 active:opacity-80 shadow-lg shadow-accent-500/20",
           secondary:
-            "glass glass-hover text-neutral-200",
+            "glass glass-hover text-text-secondary hover:text-text-primary",
           ghost:
-            "text-neutral-400 hover:text-neutral-200 hover:bg-white/5",
+            "text-text-muted hover:text-text-secondary hover:bg-white/[0.04]",
           danger:
-            "bg-red-600/20 text-red-400 hover:bg-red-600/30 border border-red-600/30",
+            "bg-red-500/10 text-red-400 hover:bg-red-500/20 border border-red-500/15",
         }[variant],
         {
-          sm: "h-8 px-3 text-sm",
+          sm: "h-8 px-3 text-xs",
           md: "h-10 px-4 text-sm",
-          lg: "h-12 px-6 text-base",
+          lg: "h-12 px-6 text-sm",
         }[size],
         className
       )}

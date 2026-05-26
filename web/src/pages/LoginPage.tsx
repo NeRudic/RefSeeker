@@ -1,9 +1,10 @@
 import { useState, type FormEvent } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
+import { motion } from "framer-motion";
 import { useAuth } from "@/app/auth-context";
 import { Input } from "@/shared/ui/input";
 import { Button } from "@/shared/ui/button";
-import { Hexagon, Loader2, LogIn } from "lucide-react";
+import { Hexagon, Loader2, LogIn, ArrowRight } from "lucide-react";
 
 export function LoginPage() {
   const navigate = useNavigate();
@@ -33,24 +34,34 @@ export function LoginPage() {
   };
 
   return (
-    <div className="flex min-h-[calc(100vh-3.5rem)] flex-col items-center justify-center px-4">
+    <div className="flex min-h-screen flex-col items-center justify-center px-4">
       <div className="fixed inset-0 bg-grid pointer-events-none" />
 
-      <div className="relative z-10 w-full max-w-sm">
+      <motion.div
+        initial={{ opacity: 0, y: 20, scale: 0.98 }}
+        animate={{ opacity: 1, y: 0, scale: 1 }}
+        transition={{ duration: 0.5, ease: "easeOut" }}
+        className="relative z-10 w-full max-w-sm"
+      >
+        {/* Logo */}
         <div className="text-center mb-8">
-          <div className="mb-4 inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-accent-500/10 ring-1 ring-accent-500/20">
-            <Hexagon className="h-6 w-6 text-accent-400" />
+          <div className="mb-5 inline-flex h-12 w-12 items-center justify-center rounded-2xl accent-gradient shadow-lg shadow-accent-500/25">
+            <Hexagon className="h-6 w-6 text-white" />
           </div>
-          <h1 className="text-2xl font-bold text-neutral-100">Welcome back</h1>
-          <p className="text-sm text-neutral-500 mt-1">Sign in to your RefSeeker account</p>
+          <h1 className="text-2xl font-bold text-text-primary">Welcome back</h1>
+          <p className="text-sm text-text-secondary mt-1">Sign in to your account</p>
         </div>
 
         {reason === "rate_limited" && (
-          <div className="mb-4 glass rounded-xl p-3 border border-amber-500/20">
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            className="mb-4 glass rounded-xl p-3 border border-amber-500/15"
+          >
             <p className="text-xs text-amber-400 text-center">
               You've used your free search. Sign in for more.
             </p>
-          </div>
+          </motion.div>
         )}
 
         <form onSubmit={handleSubmit} className="glass rounded-2xl p-6 space-y-4">
@@ -69,7 +80,7 @@ export function LoginPage() {
             id="password"
             label="Password"
             type="password"
-            placeholder="••••••••"
+            placeholder="Enter your password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             disabled={loading}
@@ -86,13 +97,13 @@ export function LoginPage() {
           </Button>
         </form>
 
-        <p className="text-center text-sm text-neutral-500 mt-6">
+        <p className="text-center text-sm text-text-secondary mt-6">
           Don't have an account?{" "}
-          <Link to="/register" className="text-accent-400 hover:text-accent-300 transition-colors">
-            Create one
+          <Link to="/register" className="text-accent-400 hover:text-accent-300 transition-colors font-medium">
+            Create one <ArrowRight className="inline h-3 w-3" />
           </Link>
         </p>
-      </div>
+      </motion.div>
     </div>
   );
 }

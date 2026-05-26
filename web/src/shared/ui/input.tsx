@@ -18,7 +18,7 @@ export function Input({
       {label && (
         <label
           htmlFor={id}
-          className="block text-sm font-medium text-neutral-400 mb-1.5"
+          className="block text-xs font-medium text-text-secondary mb-1.5"
         >
           {label}
         </label>
@@ -26,18 +26,18 @@ export function Input({
       <input
         id={id}
         className={cn(
-          "w-full h-12 px-4 rounded-xl bg-white/5 border border-white/10 text-neutral-100",
-          "placeholder:text-neutral-600",
+          "w-full h-12 px-4 rounded-xl bg-white/[0.04] border border-border text-text-primary",
+          "placeholder:text-text-muted",
           "transition-all duration-200",
-          "focus:outline-none focus:border-accent-500 focus:ring-1 focus:ring-accent-500/50",
-          "disabled:opacity-40 disabled:cursor-not-allowed",
-          error && "border-red-500/50 focus:border-red-500 focus:ring-red-500/50",
+          "focus:outline-none focus:border-accent-500/50 focus:ring-1 focus:ring-accent-500/30 focus:bg-white/[0.06]",
+          "disabled:opacity-30 disabled:cursor-not-allowed",
+          error && "border-red-500/40 focus:border-red-500 focus:ring-red-500/30",
           className
         )}
         {...props}
       />
       {error && (
-        <p className="mt-1 text-sm text-red-400">{error}</p>
+        <p className="mt-1.5 text-xs text-red-400">{error}</p>
       )}
     </div>
   );

@@ -1,62 +1,80 @@
 import { SearchForm } from "@/widgets/search-form/search-form";
 import { RateLimitBanner } from "@/widgets/rate-limit-banner/rate-limit-banner";
-import { Hexagon } from "lucide-react";
+import { motion } from "framer-motion";
+import { Hexagon, Zap, Shield, Sparkles } from "lucide-react";
+
+const features = [
+  { icon: Zap, label: "Smart Search", desc: "Multi-variant queries for broad coverage" },
+  { icon: Shield, label: "AI Verification", desc: "Parallel vision models check every image" },
+  { icon: Sparkles, label: "Auto Curation", desc: "Filters watermarks, low-res, and unwanted content" },
+];
 
 export function HomePage() {
   return (
-    <div className="flex min-h-[calc(100vh-3.5rem)] flex-col items-center justify-center px-4">
-      {/* Background grid */}
+    <div className="relative flex min-h-screen flex-col items-center justify-center px-6">
       <div className="fixed inset-0 bg-grid pointer-events-none" />
 
       <RateLimitBanner />
 
       {/* Hero */}
-      <div className="relative z-10 w-full max-w-3xl text-center mb-12 animate-slide-up">
-        <div className="mb-6 inline-flex h-16 w-16 items-center justify-center rounded-2xl bg-accent-500/10 ring-1 ring-accent-500/20">
-          <Hexagon className="h-8 w-8 text-accent-400" />
-        </div>
-        <h1 className="text-4xl sm:text-5xl font-bold tracking-tight text-neutral-100 mb-4">
+      <motion.div
+        initial={{ opacity: 0, y: 24 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.6, ease: "easeOut" }}
+        className="relative z-10 w-full max-w-2xl text-center mb-10"
+      >
+        <motion.div
+          initial={{ opacity: 0, scale: 0.9 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ delay: 0.1, duration: 0.5 }}
+          className="mb-8 inline-flex h-16 w-16 items-center justify-center rounded-2xl accent-gradient shadow-lg shadow-accent-500/25"
+        >
+          <Hexagon className="h-8 w-8 text-white" />
+        </motion.div>
+
+        <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold tracking-tight text-text-primary mb-4">
           Find perfect
-          <span className="text-transparent bg-clip-text bg-gradient-to-r from-accent-400 to-accent-300">
-            {" "}reference images
-          </span>
+          <br />
+          <span className="accent-gradient-text">reference images</span>
         </h1>
-        <p className="text-lg text-neutral-500 max-w-xl mx-auto leading-relaxed">
-          Describe what you need, and RefSeeker will search, download, and
-          automatically verify images using AI to find the best references.
+        <p className="text-base text-text-secondary max-w-lg mx-auto leading-relaxed">
+          Describe what you need. RefSeeker searches, downloads, and verifies
+          images using multiple AI models to find the best references.
         </p>
-      </div>
+      </motion.div>
 
       {/* Search */}
-      <div className="relative z-10 w-full animate-slide-up" style={{ animationDelay: "0.15s" }}>
+      <motion.div
+        initial={{ opacity: 0, y: 16 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.2, duration: 0.5 }}
+        className="relative z-10 w-full"
+      >
         <SearchForm />
-      </div>
+      </motion.div>
 
       {/* Features */}
-      <div className="relative z-10 mt-16 grid grid-cols-1 sm:grid-cols-3 gap-4 max-w-2xl w-full animate-fade-in">
-        {[
-          {
-            title: "Smart Search",
-            desc: "Multi-variant queries for broad coverage",
-          },
-          {
-            title: "AI Verification",
-            desc: "Gemini 2.5 Flash checks relevance & quality",
-          },
-          {
-            title: "Auto Curation",
-            desc: "Filters watermarks, low-res, unwanted content",
-          },
-        ].map((f) => (
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ delay: 0.5, duration: 0.5 }}
+        className="relative z-10 mt-20 grid grid-cols-1 sm:grid-cols-3 gap-3 max-w-xl w-full"
+      >
+        {features.map(({ icon: Icon, label, desc }) => (
           <div
-            key={f.title}
-            className="glass rounded-xl p-4 text-center"
+            key={label}
+            className="glass rounded-xl px-4 py-3 text-center group hover:bg-white/[0.05] transition-colors"
           >
-            <p className="text-sm font-medium text-neutral-200">{f.title}</p>
-            <p className="text-xs text-neutral-500 mt-1">{f.desc}</p>
+            <div className="flex justify-center mb-2">
+              <div className="rounded-lg bg-accent-500/10 p-1.5">
+                <Icon className="h-3.5 w-3.5 text-accent-400" />
+              </div>
+            </div>
+            <p className="text-xs font-medium text-text-primary">{label}</p>
+            <p className="text-[11px] text-text-muted mt-0.5">{desc}</p>
           </div>
         ))}
-      </div>
+      </motion.div>
     </div>
   );
 }

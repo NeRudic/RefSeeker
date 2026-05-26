@@ -1,4 +1,5 @@
 import { useEffect, useCallback } from "react";
+import { motion } from "framer-motion";
 import { X, ChevronLeft, ChevronRight, Download } from "lucide-react";
 
 interface LightboxProps {
@@ -43,11 +44,16 @@ export function Lightbox({
   if (!current) return null;
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm animate-fade-in"
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      transition={{ duration: 0.2 }}
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 backdrop-blur-md"
       onClick={onClose}
     >
       {/* Top bar */}
+      <div className="absolute top-0 inset-x-0 h-16 bg-gradient-to-b from-black/60 to-transparent pointer-events-none" />
       <div className="absolute top-4 right-4 z-10 flex items-center gap-2">
         {onDownload && (
           <button
@@ -55,67 +61,65 @@ export function Lightbox({
               e.stopPropagation();
               onDownload(currentIndex);
             }}
-            className="flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-white hover:bg-accent-500 transition-colors"
+            className="flex h-10 w-10 items-center justify-center rounded-full bg-white/[0.06] border border-border text-white hover:bg-accent-500 hover:border-accent-500 transition-all duration-200"
             title="Download"
           >
-            <Download className="h-5 w-5" />
+            <Download className="h-4 w-4" />
           </button>
         )}
         <button
           onClick={onClose}
-          className="flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-white hover:bg-white/20 transition-colors"
+          className="flex h-10 w-10 items-center justify-center rounded-full bg-white/[0.06] border border-border text-white hover:bg-white/[0.12] transition-all duration-200"
         >
-          <X className="h-5 w-5" />
+          <X className="h-4 w-4" />
         </button>
       </div>
 
       {/* Counter */}
-      <div className="absolute top-4 left-4 z-10 glass rounded-full px-4 py-2 text-xs text-neutral-400">
+      <div className="absolute top-4 left-4 z-10 glass rounded-full px-4 py-2 text-xs text-text-secondary font-mono tabular-nums">
         {currentIndex + 1} / {images.length}
       </div>
 
       {/* Previous */}
       {currentIndex > 0 && (
         <button
-          onClick={(e) => {
-            e.stopPropagation();
-            goPrev();
-          }}
-          className="absolute left-4 z-10 flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-white hover:bg-white/20 transition-colors"
+          onClick={(e) => { e.stopPropagation(); goPrev(); }}
+          className="absolute left-4 z-10 flex h-10 w-10 items-center justify-center rounded-full bg-white/[0.06] border border-border text-white hover:bg-white/[0.12] transition-all duration-200"
         >
-          <ChevronLeft className="h-6 w-6" />
+          <ChevronLeft className="h-5 w-5" />
         </button>
       )}
 
       {/* Image */}
-      <div
+      <motion.div
+        key={currentIndex}
+        initial={{ opacity: 0, scale: 0.95 }}
+        animate={{ opacity: 1, scale: 1 }}
+        transition={{ duration: 0.25 }}
         className="max-h-[90vh] max-w-[90vw]"
         onClick={(e) => e.stopPropagation()}
       >
         <img
           src={current.url}
           alt={current.label ?? ""}
-          className="max-h-[85vh] max-w-[85vw] object-contain rounded-2xl shadow-2xl"
+          className="max-h-[85vh] max-w-[85vw] object-contain rounded-2xl"
         />
         {current.label && (
-          <p className="mt-3 text-center text-sm text-neutral-400">
+          <p className="mt-3 text-center text-sm text-text-secondary">
             {current.label}
           </p>
         )}
-      </div>
+      </motion.div>
 
       {/* Next */}
       {currentIndex < images.length - 1 && (
         <button
-          onClick={(e) => {
-            e.stopPropagation();
-            goNext();
-          }}
-          className="absolute right-4 z-10 flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-white hover:bg-white/20 transition-colors"
+          onClick={(e) => { e.stopPropagation(); goNext(); }}
+          className="absolute right-4 z-10 flex h-10 w-10 items-center justify-center rounded-full bg-white/[0.06] border border-border text-white hover:bg-white/[0.12] transition-all duration-200"
         >
-          <ChevronRight className="h-6 w-6" />
+          <ChevronRight className="h-5 w-5" />
         </button>
       )}
-    </div>
+    </motion.div>
   );
 }

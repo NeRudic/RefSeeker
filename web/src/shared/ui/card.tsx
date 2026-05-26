@@ -2,7 +2,7 @@ import { cn } from "@/shared/lib/cn";
 import type { HTMLAttributes } from "react";
 
 interface CardProps extends HTMLAttributes<HTMLDivElement> {
-  variant?: "glass" | "solid";
+  variant?: "glass" | "glass-deep" | "solid" | "accent";
 }
 
 export function Card({
@@ -16,7 +16,9 @@ export function Card({
       className={cn(
         "rounded-2xl p-5 transition-all duration-200",
         variant === "glass" && "glass",
-        variant === "solid" && "bg-surface-900 border border-surface-800",
+        variant === "glass-deep" && "glass-deep",
+        variant === "solid" && "bg-surface-2 border border-border",
+        variant === "accent" && "glass accent-border",
         className
       )}
       {...props}

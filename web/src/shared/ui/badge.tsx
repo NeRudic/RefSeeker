@@ -2,7 +2,7 @@ import { cn } from "@/shared/lib/cn";
 import type { HTMLAttributes } from "react";
 
 interface BadgeProps extends HTMLAttributes<HTMLSpanElement> {
-  variant?: "default" | "success" | "warning" | "error" | "info";
+  variant?: "default" | "success" | "warning" | "error" | "info" | "accent";
 }
 
 export function Badge({
@@ -14,13 +14,14 @@ export function Badge({
   return (
     <span
       className={cn(
-        "inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-medium",
+        "inline-flex items-center gap-1.5 rounded-lg px-2.5 py-0.5 text-[11px] font-medium",
         {
-          default: "bg-white/5 text-neutral-400",
-          success: "bg-emerald-500/10 text-emerald-400",
-          warning: "bg-amber-500/10 text-amber-400",
-          error: "bg-red-500/10 text-red-400",
-          info: "bg-accent-500/10 text-accent-400",
+          default: "bg-white/[0.04] text-text-secondary border border-border",
+          success: "bg-success-bg text-success border border-success/15",
+          warning: "bg-amber-500/8 text-amber-400 border border-amber-500/15",
+          error: "bg-red-500/8 text-red-400 border border-red-500/15",
+          info: "bg-blue-500/8 text-blue-400 border border-blue-500/15",
+          accent: "bg-accent-500/8 text-accent-400 border border-accent-500/15",
         }[variant],
         className
       )}

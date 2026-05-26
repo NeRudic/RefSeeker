@@ -1,7 +1,7 @@
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { AuthProvider, useAuth } from "@/app/auth-context";
-import { Navbar } from "@/widgets/navbar/navbar";
+import { Sidebar } from "@/widgets/sidebar/sidebar";
 import { HomePage } from "@/pages/HomePage";
 import { SearchPage } from "@/pages/SearchPage";
 import { GalleryPage } from "@/pages/GalleryPage";
@@ -31,13 +31,23 @@ function ProtectedRoute({ children, requireAdmin }: { children: ReactNode; requi
   return <>{children}</>;
 }
 
+function AppLayout({ children }: { children: ReactNode }) {
+  return (
+    <div className="flex min-h-screen bg-base-900">
+      <Sidebar />
+      <main className="flex-1 ml-16">
+        {children}
+      </main>
+    </div>
+  );
+}
+
 export function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
         <BrowserRouter>
-          <Navbar />
-          <main>
+          <AppLayout>
             <Routes>
               <Route path="/" element={<HomePage />} />
               <Route path="/login" element={<LoginPage />} />
@@ -54,7 +64,7 @@ export function App() {
                 }
               />
             </Routes>
-          </main>
+          </AppLayout>
         </BrowserRouter>
       </AuthProvider>
     </QueryClientProvider>

@@ -14,14 +14,15 @@ import type { UsageSummary, UserUsage, RoleCount } from "@/entities/user";
 
 // ── Colors ─────────────────────────────────────────────────────────────
 
-const ACCENT = "#818cf8";
-const NEUTRAL = "#525252";
+const ACCENT = "#a78bfa";
+const SUCCESS = "#34d399";
+const NEUTRAL = "#52525b";
 
 const PIE_COLORS: Record<string, string> = {
-  admin: "#ef4444",
-  premium: "#a855f7",
-  pro: "#3b82f6",
-  free: "#525252",
+  admin: "#f87171",
+  premium: "#a78bfa",
+  pro: "#60a5fa",
+  free: "#52525b",
 };
 
 // ── Helpers ────────────────────────────────────────────────────────────
@@ -61,15 +62,15 @@ const roleLabel: Record<string, string> = {
   free: "Free",
 };
 
-// ── Tooltip components ──────────────────────────────────────────────────
+// ── Chart tooltips ─────────────────────────────────────────────────────
 
-function ChartTooltip({ active, payload, label, unit = "" }: { active?: boolean; payload?: { value: number }[]; label?: string; unit?: string }) {
+function ChartTooltip({ active, payload, label }: { active?: boolean; payload?: { value: number }[]; label?: string }) {
   if (!active || !payload?.length) return null;
   return (
-    <div className="glass rounded-xl px-3 py-2 text-xs shadow-xl border border-white/5">
-      <p className="text-neutral-400 mb-0.5">{label}</p>
-      <p className="text-neutral-100 font-semibold tabular-nums">
-        {fmt(payload[0].value)}{unit}
+    <div className="glass rounded-xl px-3 py-2 text-xs shadow-xl border border-border">
+      <p className="text-text-muted mb-0.5">{label}</p>
+      <p className="text-text-primary font-semibold tabular-nums">
+        {fmt(payload[0].value)}
       </p>
     </div>
   );
@@ -78,15 +79,13 @@ function ChartTooltip({ active, payload, label, unit = "" }: { active?: boolean;
 function PieTooltip({ active, payload }: { active?: boolean; payload?: { name: string; value: number }[] }) {
   if (!active || !payload?.length) return null;
   return (
-    <div className="glass rounded-xl px-3 py-2 text-xs shadow-xl border border-white/5">
-      <p className="text-neutral-100 font-semibold tabular-nums">
+    <div className="glass rounded-xl px-3 py-2 text-xs shadow-xl border border-border">
+      <p className="text-text-primary font-semibold tabular-nums">
         {payload[0].name}: {payload[0].value}
       </p>
     </div>
   );
 }
-
-// ── Custom ticks ───────────────────────────────────────────────────────
 
 function DateTick({ x, y, payload }: { x?: number; y?: number; payload?: { value: string } }) {
   if (!x || !y || !payload) return null;
@@ -97,13 +96,13 @@ function DateTick({ x, y, payload }: { x?: number; y?: number; payload?: { value
   );
 }
 
-// ── Skeleton ───────────────────────────────────────────────────────────
+// ── Skeletons ──────────────────────────────────────────────────────────
 
 function CardSkeleton() {
   return (
     <div className="glass rounded-2xl p-5 animate-pulse">
-      <div className="h-3 w-20 bg-white/5 rounded mb-3" />
-      <div className="h-7 w-24 bg-white/10 rounded" />
+      <div className="h-3 w-20 bg-white/[0.04] rounded mb-3" />
+      <div className="h-7 w-24 bg-white/[0.06] rounded" />
     </div>
   );
 }
@@ -111,7 +110,7 @@ function CardSkeleton() {
 function ChartSkeleton() {
   return (
     <div className="glass rounded-2xl p-6 animate-pulse">
-      <div className="h-3 w-32 bg-white/5 rounded mb-6" />
+      <div className="h-3 w-32 bg-white/[0.04] rounded mb-6" />
       <div className="h-48 w-full bg-white/[0.02] rounded-xl" />
     </div>
   );
@@ -128,55 +127,41 @@ function SummaryCard({ icon: Icon, label, value, delay, color }: {
 }) {
   return (
     <motion.div
-      initial={{ opacity: 0, y: 16 }}
+      initial={{ opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ delay, duration: 0.5, ease: "easeOut" }}
-      className="glass rounded-2xl p-5 group hover:bg-white/[0.06] transition-colors"
+      transition={{ delay, duration: 0.4, ease: "easeOut" }}
+      className="glass rounded-2xl p-5 group hover:bg-white/[0.05] transition-colors"
     >
       <div className="flex items-center justify-between mb-3">
-        <span className="text-xs font-medium text-neutral-500 uppercase tracking-wider">
+        <span className="text-[11px] font-medium text-text-muted uppercase tracking-wider">
           {label}
         </span>
-        <div className={cn("rounded-lg p-2 transition-colors", color)}>
+        <div className={cn("rounded-lg p-2", color)}>
           <Icon className="h-4 w-4" />
         </div>
       </div>
-      <span className="text-2xl font-bold text-neutral-100 tabular-nums tracking-tight">
+      <span className="text-2xl font-bold text-text-primary tabular-nums tracking-tight">
         {typeof value === "number" ? fmt(value) : value}
       </span>
     </motion.div>
   );
 }
 
-// ── Section Header ─────────────────────────────────────────────────────
+// ── Chart Card ─────────────────────────────────────────────────────────
 
-function SectionHeader({ icon: Icon, title }: { icon: typeof Activity; title: string }) {
-  return (
-    <div className="flex items-center gap-2.5 mb-5">
-      <div className="rounded-lg bg-accent-500/10 p-2">
-        <Icon className="h-4 w-4 text-accent-400" />
-      </div>
-      <h2 className="text-sm font-semibold text-neutral-200">{title}</h2>
-    </div>
-  );
-}
-
-// ── Chart wrapper ──────────────────────────────────────────────────────
-
-function ChartCard({ title, children, delay, className }: {
+function ChartCard({ title, children, delay }: {
   title: string;
   children: React.ReactNode;
   delay?: number;
-  className?: string;
 }) {
   return (
     <motion.div
-      initial={{ opacity: 0, y: 16 }}
+      initial={{ opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ delay: delay ?? 0, duration: 0.5, ease: "easeOut" }}
-      className={cn("glass rounded-2xl p-6", className)}
+      transition={{ delay: delay ?? 0, duration: 0.4, ease: "easeOut" }}
+      className="glass rounded-2xl p-6"
     >
-      <h3 className="text-xs font-medium text-neutral-400 uppercase tracking-wider mb-6">
+      <h3 className="text-[11px] font-medium text-text-muted uppercase tracking-wider mb-6">
         {title}
       </h3>
       {children}
@@ -184,13 +169,11 @@ function ChartCard({ title, children, delay, className }: {
   );
 }
 
-// ── Empty State ────────────────────────────────────────────────────────
-
 function EmptyState({ message }: { message: string }) {
   return (
     <div className="flex flex-col items-center justify-center py-16 text-center">
-      <Calendar className="h-10 w-10 text-neutral-600 mb-3" />
-      <p className="text-sm text-neutral-500">{message}</p>
+      <Calendar className="h-8 w-8 text-text-muted/30 mb-3" />
+      <p className="text-xs text-text-muted">{message}</p>
     </div>
   );
 }
@@ -202,17 +185,14 @@ export function AdminDashboard() {
   const [error, setError] = useState("");
   const [summary, setSummary] = useState<UsageSummary | null>(null);
 
-  // Date range
   const [fromDate, setFromDate] = useState(thirtyDaysAgoISO);
   const [toDate, setToDate] = useState(todayISO);
 
-  // User search
   const [searchEmail, setSearchEmail] = useState("");
   const [userUsage, setUserUsage] = useState<UserUsage | null>(null);
   const [userLoading, setUserLoading] = useState(false);
   const [userError, setUserError] = useState("");
 
-  // ── Fetch summary ───────────────────────────────────────────────────
   const fetchSummary = useCallback(async (f: string, t: string) => {
     setLoading(true);
     setError("");
@@ -231,7 +211,6 @@ export function AdminDashboard() {
     fetchSummary(fromDate, toDate);
   }, [fromDate, toDate, fetchSummary]);
 
-  // ── Search user ─────────────────────────────────────────────────────
   const handleUserSearch = async () => {
     const email = searchEmail.trim();
     setUserUsage(null);
@@ -253,9 +232,7 @@ export function AdminDashboard() {
     }
   };
 
-  // ── Render ──────────────────────────────────────────────────────────
-
-  const commonChartProps = {
+  const commonBarProps = {
     stroke: "none",
     fill: ACCENT,
     fillOpacity: 1,
@@ -265,56 +242,54 @@ export function AdminDashboard() {
 
   return (
     <div className="space-y-8">
-      {/* ── Date Range Picker ──────────────────────────────────────── */}
+      {/* Date Range Picker */}
       <motion.div
-        initial={{ opacity: 0, y: 16 }}
+        initial={{ opacity: 0, y: 12 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5, ease: "easeOut" }}
+        transition={{ duration: 0.4, ease: "easeOut" }}
         className="glass rounded-2xl p-5"
       >
         <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
           <div className="flex items-center gap-2">
             <Calendar className="h-4 w-4 text-accent-400" />
-            <span className="text-xs font-medium text-neutral-400 uppercase tracking-wider">
+            <span className="text-[11px] font-medium text-text-muted uppercase tracking-wider">
               Period
             </span>
           </div>
           <div className="flex items-center gap-3">
-            <div className="relative">
-              <input
-                type="date"
-                value={fromDate}
-                onChange={(e) => setFromDate(e.target.value)}
-                className="appearance-none bg-white/[0.04] border border-white/10 rounded-xl px-3 py-2 text-xs text-neutral-200 font-medium tabular-nums focus:outline-none focus:border-accent-500/50 focus:ring-1 focus:ring-accent-500/20 transition-colors [color-scheme:dark]"
-              />
-            </div>
-            <span className="text-xs text-neutral-600">—</span>
-            <div className="relative">
-              <input
-                type="date"
-                value={toDate}
-                onChange={(e) => setToDate(e.target.value)}
-                className="appearance-none bg-white/[0.04] border border-white/10 rounded-xl px-3 py-2 text-xs text-neutral-200 font-medium tabular-nums focus:outline-none focus:border-accent-500/50 focus:ring-1 focus:ring-accent-500/20 transition-colors [color-scheme:dark]"
-              />
-            </div>
+            <input
+              type="date"
+              value={fromDate}
+              onChange={(e) => setFromDate(e.target.value)}
+              className="appearance-none bg-white/[0.04] border border-border rounded-xl px-3 py-2 text-xs text-text-primary font-medium tabular-nums focus:outline-none focus:border-accent-500/40 transition-colors [color-scheme:dark]"
+            />
+            <span className="text-xs text-text-muted">to</span>
+            <input
+              type="date"
+              value={toDate}
+              onChange={(e) => setToDate(e.target.value)}
+              className="appearance-none bg-white/[0.04] border border-border rounded-xl px-3 py-2 text-xs text-text-primary font-medium tabular-nums focus:outline-none focus:border-accent-500/40 transition-colors [color-scheme:dark]"
+            />
           </div>
           <div className="flex items-center gap-1.5 ml-auto">
             {["7d", "30d", "90d", "1y"].map((preset) => {
               const days = preset === "7d" ? 6 : preset === "30d" ? 29 : preset === "90d" ? 89 : 364;
+              const d = new Date();
+              d.setDate(d.getDate() - days);
+              const presetDate = d.toISOString().slice(0, 10);
+              const isActive = fromDate === presetDate && toDate === todayISO();
               return (
                 <button
                   key={preset}
                   onClick={() => {
-                    const d = new Date();
-                    d.setDate(d.getDate() - days);
-                    setFromDate(d.toISOString().slice(0, 10));
+                    setFromDate(presetDate);
                     setToDate(todayISO());
                   }}
                   className={cn(
                     "rounded-lg px-2.5 py-1.5 text-[11px] font-medium transition-colors",
-                    fromDate === thirtyDaysAgoISO() && preset === "30d"
-                      ? "bg-accent-500/15 text-accent-400 border border-accent-500/20"
-                      : "text-neutral-500 hover:text-neutral-300 border border-transparent hover:border-white/10"
+                    isActive
+                      ? "bg-accent-500/10 text-accent-400 border border-accent-500/15"
+                      : "text-text-muted hover:text-text-secondary border border-transparent hover:border-border"
                   )}
                 >
                   {preset}
@@ -325,19 +300,19 @@ export function AdminDashboard() {
         </div>
       </motion.div>
 
-      {/* ── Error ──────────────────────────────────────────────────── */}
+      {/* Error */}
       {error && (
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
-          className="glass rounded-2xl p-4 border border-red-500/20 flex items-center gap-3"
+          className="glass rounded-2xl p-4 border border-red-500/15 flex items-center gap-3"
         >
           <AlertCircle className="h-4 w-4 text-red-400 shrink-0" />
           <p className="text-xs text-red-400">{error}</p>
         </motion.div>
       )}
 
-      {/* ── Summary Cards ───────────────────────────────────────────── */}
+      {/* Summary Cards */}
       {loading ? (
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
           {[1, 2, 3, 4].map((i) => <CardSkeleton key={i} />)}
@@ -375,8 +350,17 @@ export function AdminDashboard() {
         </div>
       ) : null}
 
-      {/* ── Charts Section ─────────────────────────────────────────── */}
-      <SectionHeader icon={BarChart3} title="Overview" />
+      {/* Charts */}
+      {!loading && (
+        <>
+          <div className="flex items-center gap-2.5 mb-5">
+            <div className="rounded-lg bg-accent-500/10 p-2">
+              <BarChart3 className="h-4 w-4 text-accent-400" />
+            </div>
+            <h2 className="text-sm font-semibold text-text-primary">Overview</h2>
+          </div>
+        </>
+      )}
 
       {loading ? (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
@@ -396,7 +380,7 @@ export function AdminDashboard() {
                 <AreaChart data={summary.requests_per_day} margin={{ top: 4, right: 4, bottom: 0, left: -20 }}>
                   <defs>
                     <linearGradient id="reqGrad" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor={ACCENT} stopOpacity={0.25} />
+                      <stop offset="0%" stopColor={ACCENT} stopOpacity={0.2} />
                       <stop offset="100%" stopColor={ACCENT} stopOpacity={0} />
                     </linearGradient>
                   </defs>
@@ -418,30 +402,30 @@ export function AdminDashboard() {
                 <AreaChart data={summary.users_per_day} margin={{ top: 4, right: 4, bottom: 0, left: -20 }}>
                   <defs>
                     <linearGradient id="usersGrad" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="#34d399" stopOpacity={0.25} />
-                      <stop offset="100%" stopColor="#34d399" stopOpacity={0} />
+                      <stop offset="0%" stopColor={SUCCESS} stopOpacity={0.2} />
+                      <stop offset="100%" stopColor={SUCCESS} stopOpacity={0} />
                     </linearGradient>
                   </defs>
                   <XAxis dataKey="date" tick={<DateTick />} axisLine={false} tickLine={false} interval="preserveStartEnd" />
                   <YAxis tick={{ fill: NEUTRAL, fontSize: 10 }} axisLine={false} tickLine={false} />
                   <Tooltip content={<ChartTooltip />} cursor={{ stroke: NEUTRAL, strokeDasharray: "4 4" }} />
-                  <Area type="monotone" dataKey="count" stroke="#34d399" strokeWidth={2} fill="url(#usersGrad)" dot={false} activeDot={{ r: 4, fill: "#34d399", stroke: "transparent" }} />
+                  <Area type="monotone" dataKey="count" stroke={SUCCESS} strokeWidth={2} fill="url(#usersGrad)" dot={false} activeDot={{ r: 4, fill: SUCCESS, stroke: "transparent" }} />
                 </AreaChart>
               </ResponsiveContainer>
             )}
           </ChartCard>
 
           {/* Collections per day */}
-          <ChartCard title="Collections created per day" delay={0.15}>
+          <ChartCard title="Collections per day" delay={0.15}>
             {summary.collections_per_day.length === 0 ? (
-              <EmptyState message="No collections created in this period" />
+              <EmptyState message="No collections in this period" />
             ) : (
               <ResponsiveContainer width="100%" height={220}>
                 <BarChart data={summary.collections_per_day} margin={{ top: 4, right: 4, bottom: 0, left: -20 }}>
                   <XAxis dataKey="date" tick={<DateTick />} axisLine={false} tickLine={false} interval="preserveStartEnd" />
                   <YAxis tick={{ fill: NEUTRAL, fontSize: 10 }} axisLine={false} tickLine={false} />
-                  <Tooltip content={<ChartTooltip />} cursor={{ fill: "rgba(255,255,255,0.03)" }} />
-                  <Bar dataKey="count" {...commonChartProps} fill="#a78bfa" />
+                  <Tooltip content={<ChartTooltip />} cursor={{ fill: "rgba(255,255,255,0.02)" }} />
+                  <Bar dataKey="count" {...commonBarProps} fill="#a78bfa" />
                 </BarChart>
               </ResponsiveContainer>
             )}
@@ -461,28 +445,27 @@ export function AdminDashboard() {
                       nameKey="name"
                       cx="50%"
                       cy="50%"
-                      innerRadius={52}
-                      outerRadius={80}
+                      innerRadius={48}
+                      outerRadius={76}
                       paddingAngle={3}
                       stroke="transparent"
                     >
                       {summary.role_distribution.map((entry: RoleCount) => (
-                        <Cell key={entry.role} fill={PIE_COLORS[entry.role] || "#525252"} />
+                        <Cell key={entry.role} fill={PIE_COLORS[entry.role] || "#52525b"} />
                       ))}
                     </Pie>
                     <Tooltip content={<PieTooltip />} />
                   </PieChart>
                 </ResponsiveContainer>
-                {/* Legend */}
                 <div className="space-y-2.5">
                   {summary.role_distribution.map((entry: RoleCount) => (
                     <div key={entry.role} className="flex items-center gap-2.5">
                       <span
                         className="h-2.5 w-2.5 rounded-full"
-                        style={{ backgroundColor: PIE_COLORS[entry.role] || "#525252" }}
+                        style={{ backgroundColor: PIE_COLORS[entry.role] || "#52525b" }}
                       />
-                      <span className="text-xs text-neutral-400">{roleLabel[entry.role] || entry.role}</span>
-                      <span className="text-xs text-neutral-100 font-semibold tabular-nums">{entry.count}</span>
+                      <span className="text-xs text-text-secondary">{roleLabel[entry.role] || entry.role}</span>
+                      <span className="text-xs text-text-primary font-semibold tabular-nums">{entry.count}</span>
                     </div>
                   ))}
                 </div>
@@ -492,31 +475,36 @@ export function AdminDashboard() {
         </div>
       ) : null}
 
-      {/* ── User Search Section ─────────────────────────────────────── */}
-      <SectionHeader icon={Search} title="User Search" />
+      {/* User Search */}
+      <div className="flex items-center gap-2.5 mb-5 mt-8">
+        <div className="rounded-lg bg-accent-500/10 p-2">
+          <Search className="h-4 w-4 text-accent-400" />
+        </div>
+        <h2 className="text-sm font-semibold text-text-primary">User Lookup</h2>
+      </div>
 
       <motion.div
-        initial={{ opacity: 0, y: 16 }}
+        initial={{ opacity: 0, y: 12 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.25, duration: 0.5, ease: "easeOut" }}
+        transition={{ delay: 0.25, duration: 0.4 }}
         className="glass rounded-2xl p-5"
       >
         <div className="flex flex-col sm:flex-row gap-3">
           <div className="relative flex-1">
-            <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-neutral-500" />
+            <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-text-muted" />
             <input
               type="email"
-              placeholder="Enter user email (leave empty for unauthorized usage)"
+              placeholder="Enter user email (empty = unauthorized)"
               value={searchEmail}
               onChange={(e) => setSearchEmail(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && handleUserSearch()}
-              className="w-full bg-white/[0.04] border border-white/10 rounded-xl pl-10 pr-3 py-2.5 text-xs text-neutral-200 placeholder:text-neutral-600 focus:outline-none focus:border-accent-500/50 focus:ring-1 focus:ring-accent-500/20 transition-colors"
+              className="w-full bg-white/[0.04] border border-border rounded-xl pl-10 pr-3 py-2.5 text-xs text-text-primary placeholder:text-text-muted focus:outline-none focus:border-accent-500/40 transition-colors"
             />
           </div>
           <button
             onClick={handleUserSearch}
             disabled={userLoading}
-            className="flex items-center gap-2 rounded-xl px-4 py-2.5 text-xs font-medium bg-accent-600 text-white hover:bg-accent-500 disabled:opacity-50 transition-colors shrink-0"
+            className="flex items-center gap-2 rounded-xl px-4 py-2.5 text-xs font-medium accent-gradient text-white hover:opacity-90 disabled:opacity-40 transition-opacity shrink-0"
           >
             {userLoading ? (
               <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -541,19 +529,18 @@ export function AdminDashboard() {
             transition={{ duration: 0.3 }}
             className="mt-5 space-y-5"
           >
-            {/* User info card */}
-            <div className="glass rounded-xl p-4 border border-white/[0.04]">
+            <div className="glass rounded-xl p-4 border border-border">
               <div className="flex flex-wrap items-center gap-4">
                 <div className="flex items-center gap-3">
                   <div className="rounded-full bg-accent-500/10 p-2">
                     <Mail className="h-4 w-4 text-accent-400" />
                   </div>
                   <div>
-                    <p className="text-sm font-medium text-neutral-200">
+                    <p className="text-sm font-medium text-text-primary">
                       {userUsage.email === "__unauthorized__" ? "Unauthorized Users" : userUsage.email}
                     </p>
                     {userUsage.email !== "__unauthorized__" && (
-                      <p className="text-[11px] text-neutral-500">
+                      <p className="text-[11px] text-text-muted">
                         Joined {new Date(userUsage.created_at).toLocaleDateString("en-US", {
                           year: "numeric", month: "short", day: "numeric",
                         })}
@@ -566,24 +553,24 @@ export function AdminDashboard() {
                     <>
                       <span className={cn(
                         "rounded-md px-2 py-1 text-[10px] font-semibold uppercase tracking-wider border",
-                        userUsage.role === "admin" && "bg-red-500/10 text-red-400 border-red-500/20",
-                        userUsage.role === "premium" && "bg-purple-500/10 text-purple-400 border-purple-500/20",
-                        userUsage.role === "pro" && "bg-blue-500/10 text-blue-400 border-blue-500/20",
-                        userUsage.role === "free" && "bg-neutral-500/10 text-neutral-400 border-neutral-500/20",
+                        userUsage.role === "admin" && "bg-red-500/8 text-red-400 border-red-500/15",
+                        userUsage.role === "premium" && "bg-purple-500/8 text-purple-400 border-purple-500/15",
+                        userUsage.role === "pro" && "bg-blue-500/8 text-blue-400 border-blue-500/15",
+                        userUsage.role === "free" && "bg-white/[0.04] text-text-secondary border-border",
                       )}>
                         {userUsage.role}
                       </span>
                       <div className="text-right">
-                        <p className="text-[11px] text-neutral-500">Daily limit</p>
-                        <p className="text-xs font-semibold text-neutral-200 tabular-nums">
+                        <p className="text-[11px] text-text-muted">Daily limit</p>
+                        <p className="text-xs font-semibold text-text-primary tabular-nums">
                           {userUsage.daily_limit === -1 ? "∞" : userUsage.daily_limit}
                         </p>
                       </div>
                     </>
                   )}
                   <div className="text-right">
-                    <p className="text-[11px] text-neutral-500">Total in period</p>
-                    <p className="text-lg font-bold text-neutral-100 tabular-nums">
+                    <p className="text-[11px] text-text-muted">Total in period</p>
+                    <p className="text-lg font-bold text-text-primary tabular-nums">
                       {fmt(userUsage.total_requests_in_period)}
                     </p>
                   </div>
@@ -591,10 +578,9 @@ export function AdminDashboard() {
               </div>
             </div>
 
-            {/* User requests chart */}
             {userUsage.requests_per_day.length > 0 ? (
-              <div className="glass rounded-xl p-4 border border-white/[0.04]">
-                <h4 className="text-xs font-medium text-neutral-400 uppercase tracking-wider mb-4">
+              <div className="glass rounded-xl p-4 border border-border">
+                <h4 className="text-[11px] font-medium text-text-muted uppercase tracking-wider mb-4">
                   Requests per day
                 </h4>
                 <ResponsiveContainer width="100%" height={200}>
@@ -613,7 +599,7 @@ export function AdminDashboard() {
                 </ResponsiveContainer>
               </div>
             ) : (
-              <div className="glass rounded-xl p-6 border border-white/[0.04]">
+              <div className="glass rounded-xl p-6 border border-border">
                 <EmptyState message="No requests from this user in the selected period" />
               </div>
             )}

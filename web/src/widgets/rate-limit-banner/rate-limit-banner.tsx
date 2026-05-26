@@ -1,5 +1,6 @@
 import { useAuth } from "@/app/auth-context";
 import { Link } from "react-router-dom";
+import { motion } from "framer-motion";
 import { AlertTriangle, AlertCircle } from "lucide-react";
 
 export function RateLimitBanner() {
@@ -8,46 +9,57 @@ export function RateLimitBanner() {
   if (!rateLimit) return null;
 
   const { remaining, limit } = rateLimit;
-  if (limit <= 0) return null; // unlimited
+  if (limit <= 0) return null;
 
   const pct = remaining / limit;
 
   if (remaining <= 0) {
     return (
-      <div className="mx-auto max-w-6xl px-4 pt-4">
-        <div className="glass rounded-xl p-3 border border-red-500/20 flex items-start gap-3">
-          <AlertCircle className="h-5 w-5 text-red-400 shrink-0 mt-0.5" />
-          <div className="text-sm">
-            <span className="text-red-400">
+      <motion.div
+        initial={{ opacity: 0, y: -8 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="fixed top-4 left-1/2 z-50 -translate-x-1/2 w-full max-w-lg px-4"
+      >
+        <div className="glass rounded-xl p-3 border border-red-500/15 flex items-center gap-3">
+          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-red-500/10 shrink-0">
+            <AlertCircle className="h-4 w-4 text-red-400" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-xs text-red-400">
               {isAuthenticated
                 ? "You've used all your searches for today."
                 : "You've used your free search."}
-            </span>{" "}
-            {isAuthenticated ? (
-              <span className="text-neutral-400">
-                Upgrade your plan for more, or try again tomorrow.
-              </span>
-            ) : (
-              <Link to="/register" className="text-accent-400 hover:text-accent-300 transition-colors font-medium">
-                Sign up for more searches.
-              </Link>
-            )}
+            </p>
           </div>
+          {!isAuthenticated && (
+            <Link
+              to="/register"
+              className="shrink-0 text-xs font-medium text-accent-400 hover:text-accent-300 transition-colors"
+            >
+              Sign up
+            </Link>
+          )}
         </div>
-      </div>
+      </motion.div>
     );
   }
 
   if (pct <= 0.2) {
     return (
-      <div className="mx-auto max-w-6xl px-4 pt-4">
-        <div className="glass rounded-xl p-3 border border-amber-500/20 flex items-start gap-3">
-          <AlertTriangle className="h-5 w-5 text-amber-400 shrink-0 mt-0.5" />
-          <p className="text-sm text-amber-400">
-            Only <strong>{remaining}</strong> search{remaining === 1 ? "" : "es"} remaining today.
+      <motion.div
+        initial={{ opacity: 0, y: -8 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="fixed top-4 left-1/2 z-50 -translate-x-1/2 w-full max-w-lg px-4"
+      >
+        <div className="glass rounded-xl p-3 border border-amber-500/15 flex items-center gap-3">
+          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-amber-500/10 shrink-0">
+            <AlertTriangle className="h-4 w-4 text-amber-400" />
+          </div>
+          <p className="text-xs text-amber-400">
+            <strong>{remaining}</strong> search{remaining === 1 ? "" : "es"} remaining today
           </p>
         </div>
-      </div>
+      </motion.div>
     );
   }
 

@@ -1,9 +1,10 @@
 import { useState, type FormEvent } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import { motion } from "framer-motion";
 import { useAuth } from "@/app/auth-context";
 import { Input } from "@/shared/ui/input";
 import { Button } from "@/shared/ui/button";
-import { Hexagon, Loader2, UserPlus } from "lucide-react";
+import { Hexagon, Loader2, UserPlus, ArrowRight } from "lucide-react";
 
 export function RegisterPage() {
   const navigate = useNavigate();
@@ -43,16 +44,21 @@ export function RegisterPage() {
   };
 
   return (
-    <div className="flex min-h-[calc(100vh-3.5rem)] flex-col items-center justify-center px-4">
+    <div className="flex min-h-screen flex-col items-center justify-center px-4">
       <div className="fixed inset-0 bg-grid pointer-events-none" />
 
-      <div className="relative z-10 w-full max-w-sm">
+      <motion.div
+        initial={{ opacity: 0, y: 20, scale: 0.98 }}
+        animate={{ opacity: 1, y: 0, scale: 1 }}
+        transition={{ duration: 0.5, ease: "easeOut" }}
+        className="relative z-10 w-full max-w-sm"
+      >
         <div className="text-center mb-8">
-          <div className="mb-4 inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-accent-500/10 ring-1 ring-accent-500/20">
-            <Hexagon className="h-6 w-6 text-accent-400" />
+          <div className="mb-5 inline-flex h-12 w-12 items-center justify-center rounded-2xl accent-gradient shadow-lg shadow-accent-500/25">
+            <Hexagon className="h-6 w-6 text-white" />
           </div>
-          <h1 className="text-2xl font-bold text-neutral-100">Create account</h1>
-          <p className="text-sm text-neutral-500 mt-1">Start collecting reference images</p>
+          <h1 className="text-2xl font-bold text-text-primary">Create account</h1>
+          <p className="text-sm text-text-secondary mt-1">Start collecting reference images</p>
         </div>
 
         <form onSubmit={handleSubmit} className="glass rounded-2xl p-6 space-y-4">
@@ -97,13 +103,13 @@ export function RegisterPage() {
           </Button>
         </form>
 
-        <p className="text-center text-sm text-neutral-500 mt-6">
+        <p className="text-center text-sm text-text-secondary mt-6">
           Already have an account?{" "}
-          <Link to="/login" className="text-accent-400 hover:text-accent-300 transition-colors">
-            Sign in
+          <Link to="/login" className="text-accent-400 hover:text-accent-300 transition-colors font-medium">
+            Sign in <ArrowRight className="inline h-3 w-3" />
           </Link>
         </p>
-      </div>
+      </motion.div>
     </div>
   );
 }

@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback, useRef } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
+import { motion } from "framer-motion";
 import {
   PipelineTimeline,
   EventLog,
@@ -27,13 +28,9 @@ import {
 } from "lucide-react";
 
 interface TrackedImage {
-  /** Original remote URL used as unique identifier */
   id: string;
-  /** Display URL for approved image */
   displayUrl: string;
-  /** Image filename for download */
   filename: string;
-  /** Label for the image card */
   label: string;
 }
 
@@ -84,14 +81,12 @@ export function SearchPage() {
     }
   }, []);
 
-  // Cleanup timer on unmount
   useEffect(() => {
     return () => {
       if (timerRef.current) clearInterval(timerRef.current);
     };
   }, []);
 
-  // Fetch initial session state
   useEffect(() => {
     if (!sessionId) {
       navigate("/");
@@ -109,7 +104,6 @@ export function SearchPage() {
       .finally(() => setIsLoading(false));
   }, [sessionId, navigate]);
 
-  // Subscribe to SSE
   useEffect(() => {
     if (!sessionId) return;
 
@@ -158,11 +152,7 @@ export function SearchPage() {
         setPipeline((p) => ({ ...p, download: "active" }));
         setLogEvents((prev) => [
           ...prev,
-          {
-            type: "info",
-            message: `Downloading ${data.total} images...`,
-            timestamp: Date.now(),
-          },
+          { type: "info", message: `Downloading ${data.total} images...`, timestamp: Date.now() },
         ]);
         break;
 
@@ -170,11 +160,7 @@ export function SearchPage() {
         setPipeline((p) => ({ ...p, download: "done" }));
         setLogEvents((prev) => [
           ...prev,
-          {
-            type: "info",
-            message: `Downloaded ${data.downloaded} valid images`,
-            timestamp: Date.now(),
-          },
+          { type: "info", message: `Downloaded ${data.downloaded} valid images`, timestamp: Date.now() },
         ]);
         break;
 
@@ -182,22 +168,14 @@ export function SearchPage() {
         setPipeline((p) => ({ ...p, verify: "active" }));
         setLogEvents((prev) => [
           ...prev,
-          {
-            type: "info",
-            message: `Verifying batch ${data.batch}/${data.total} (${data.size} images)...`,
-            timestamp: Date.now(),
-          },
+          { type: "info", message: `Verifying batch ${data.batch}/${data.total} (${data.size} images)...`, timestamp: Date.now() },
         ]);
         break;
 
       case "verification.batch_complete":
         setLogEvents((prev) => [
           ...prev,
-          {
-            type: "info",
-            message: `Batch ${data.batch}/${data.total} verified`,
-            timestamp: Date.now(),
-          },
+          { type: "info", message: `Batch ${data.batch}/${data.total} verified`, timestamp: Date.now() },
         ]);
         break;
 
@@ -211,18 +189,10 @@ export function SearchPage() {
             label: `#${prev.length + 1}`,
           },
         ]);
-        setSessionState((s) => ({
-          ...s,
-          saved: data.saved as number,
-          max: data.max as number,
-        }));
+        setSessionState((s) => ({ ...s, saved: data.saved as number, max: data.max as number }));
         setLogEvents((prev) => [
           ...prev,
-          {
-            type: "approved",
-            message: `${(data.reason as string) || "Approved"}`,
-            timestamp: Date.now(),
-          },
+          { type: "approved", message: `${(data.reason as string) || "Approved"}`, timestamp: Date.now() },
         ]);
         break;
 
@@ -246,8 +216,6 @@ export function SearchPage() {
     }
   }, []);
 
-  // ── Download handlers ────────────────────────────────────────────────
-
   const collectionName = sessionState.query ?? "";
 
   const handleDownloadOne = useCallback(
@@ -268,52 +236,47 @@ export function SearchPage() {
   const handleDownloadSelected = useCallback(async () => {
     if (selectedIndices.size === 0 || !collectionName) return;
     const files = Array.from(selectedIndices).map((i) => images[i]?.filename).filter(Boolean) as string[];
-    try {
-      await downloadCollection(collectionName, files);
-    } catch {
-      // silent
-    }
+    try { await downloadCollection(collectionName, files); } catch { /* silent */ }
   }, [selectedIndices, images, collectionName]);
 
   const handleDownloadAll = useCallback(async () => {
     if (!collectionName) return;
     const files = images.map((img) => img.filename).filter(Boolean) as string[];
-    try {
-      await downloadCollection(collectionName, files);
-    } catch {
-      // silent
-    }
+    try { await downloadCollection(collectionName, files); } catch { /* silent */ }
   }, [images, collectionName]);
 
-  // Clear selection when images change (new session)
   useEffect(() => {
     setSelectedIndices(new Set());
   }, [images.length]);
 
   if (isLoading) {
     return (
-      <div className="flex min-h-[calc(100vh-3.5rem)] items-center justify-center">
-        <Loader2 className="h-6 w-6 animate-spin text-neutral-500" />
+      <div className="flex min-h-screen items-center justify-center">
+        <Loader2 className="h-6 w-6 animate-spin text-text-muted" />
       </div>
     );
   }
 
   return (
-    <div className="mx-auto max-w-6xl px-4 py-8">
+    <div className="mx-auto max-w-6xl px-6 py-8">
       {/* Header */}
-      <div className="mb-8">
+      <motion.div
+        initial={{ opacity: 0, y: -8 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="mb-8"
+      >
         <Link
           to="/"
-          className="inline-flex items-center gap-1.5 text-xs text-neutral-500 hover:text-neutral-300 transition-colors mb-4"
+          className="inline-flex items-center gap-1.5 text-xs text-text-muted hover:text-text-secondary transition-colors mb-4"
         >
           <ArrowLeft className="h-3.5 w-3.5" />
           New search
         </Link>
-        <h1 className="text-2xl font-bold text-neutral-100">
+        <h1 className="text-2xl font-bold text-text-primary">
           {sessionState.query ?? "Searching..."}
         </h1>
         <div className="flex items-center gap-2 mt-2 flex-wrap">
-          <Badge variant={finished ? "success" : "info"}>
+          <Badge variant={finished ? "success" : "accent"}>
             {finished ? "Complete" : "In progress"}
           </Badge>
           {sessionState.saved !== undefined && (
@@ -322,7 +285,7 @@ export function SearchPage() {
             </Badge>
           )}
           {elapsed > 0 && (
-            <div className="flex items-center gap-1.5 text-xs text-neutral-400 ml-1">
+            <div className="flex items-center gap-1.5 text-xs text-text-muted ml-1">
               <Timer className="h-3.5 w-3.5" />
               <span className="font-mono tabular-nums">
                 {elapsed >= 3600
@@ -332,12 +295,7 @@ export function SearchPage() {
             </div>
           )}
           {collectionName && images.length > 0 && (
-            <Button
-              variant="secondary"
-              size="sm"
-              onClick={handleDownloadAll}
-              className="ml-auto"
-            >
+            <Button variant="secondary" size="sm" onClick={handleDownloadAll} className="ml-auto">
               <Download className="h-3.5 w-3.5" />
               Download all
             </Button>
@@ -347,36 +305,38 @@ export function SearchPage() {
               <AlertTriangle className="h-3 w-3" />
               <span className="hidden sm:inline">Blacklist:</span>
               {sessionState.blacklist.map((item, i) => (
-                <span key={i} className="rounded bg-amber-500/10 border border-amber-500/15 px-1.5 py-0.5 text-[10px]">
+                <span key={i} className="rounded-md bg-amber-500/8 border border-amber-500/15 px-1.5 py-0.5 text-[10px]">
                   {item}
                 </span>
               ))}
             </div>
           )}
         </div>
-      </div>
+      </motion.div>
 
       {error && (
-        <div className="mb-6 glass rounded-xl p-4 border border-red-500/20 flex items-start gap-3">
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          className="mb-6 glass rounded-xl p-4 border border-red-500/15 flex items-start gap-3"
+        >
           <AlertCircle className="h-5 w-5 text-red-400 shrink-0 mt-0.5" />
-          <div>
-            <p className="text-sm text-red-400">{error}</p>
-          </div>
-        </div>
+          <p className="text-sm text-red-400">{error}</p>
+        </motion.div>
       )}
 
-      {/* Pipeline Timeline */}
-      <PipelineTimeline state={pipeline} className="mb-6" />
+      {/* Pipeline */}
+      <PipelineTimeline state={pipeline} className="mb-8" />
 
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
         {/* Event log sidebar */}
         <div className="lg:col-span-1">
-          <div className="glass rounded-2xl p-4">
-            <h3 className="text-xs font-medium text-neutral-500 uppercase tracking-wider mb-3">
+          <div className="glass rounded-2xl p-4 sticky top-20">
+            <h3 className="text-[11px] font-medium text-text-muted uppercase tracking-wider mb-3">
               Activity Log
             </h3>
             {logEvents.length === 0 ? (
-              <p className="text-xs text-neutral-600">Waiting for events...</p>
+              <p className="text-xs text-text-muted/50">Waiting for events...</p>
             ) : (
               <EventLog events={logEvents} />
             )}
@@ -385,12 +345,12 @@ export function SearchPage() {
 
         {/* Images grid */}
         <div className="lg:col-span-3">
-          <h2 className="text-sm font-medium text-neutral-300 mb-4">
+          <h2 className="text-sm font-medium text-text-secondary mb-4">
             Images ({images.length})
           </h2>
           {images.length === 0 ? (
-            <div className="glass rounded-2xl p-12 text-center">
-              <p className="text-neutral-600">
+            <div className="glass rounded-2xl p-16 text-center">
+              <p className="text-text-muted text-sm">
                 {finished
                   ? "No images were saved"
                   : pipeline.verify === "active"
@@ -402,13 +362,11 @@ export function SearchPage() {
             <ImageGrid
               images={images.map((img) => ({
                 url: img.displayUrl,
-                status: "approved",
+                status: "approved" as const,
                 label: img.label,
                 filename: img.filename,
               }))}
-              onImageClick={(idx) => {
-                setLightboxIndex(idx);
-              }}
+              onImageClick={(idx) => setLightboxIndex(idx)}
               selectable
               selectedIndices={selectedIndices}
               onSelectionChange={setSelectedIndices}
@@ -423,7 +381,7 @@ export function SearchPage() {
         <Lightbox
           images={images.map((img, i) => ({
             url: img.displayUrl,
-            label: `Approved image #${i + 1}`,
+            label: `#${i + 1}`,
             filename: img.filename,
           }))}
           currentIndex={lightboxIndex}
@@ -435,9 +393,13 @@ export function SearchPage() {
 
       {/* Floating selection bar */}
       {selectedIndices.size > 0 && (
-        <div className="fixed bottom-6 left-1/2 z-40 -translate-x-1/2 animate-fade-in">
-          <div className="glass rounded-2xl px-5 py-3 flex items-center gap-4 shadow-xl border border-accent-500/20">
-            <span className="text-sm text-neutral-300">
+        <motion.div
+          initial={{ opacity: 0, y: 16 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="fixed bottom-6 left-1/2 z-40 -translate-x-1/2"
+        >
+          <div className="glass rounded-2xl px-5 py-3 flex items-center gap-4 shadow-xl border border-accent-500/15">
+            <span className="text-sm text-text-primary">
               {selectedIndices.size} selected
             </span>
             <div className="flex items-center gap-2">
@@ -447,13 +409,13 @@ export function SearchPage() {
               </Button>
               <button
                 onClick={() => setSelectedIndices(new Set())}
-                className="flex h-8 w-8 items-center justify-center rounded-full text-neutral-500 hover:text-neutral-300 hover:bg-white/5 transition-colors"
+                className="flex h-8 w-8 items-center justify-center rounded-full text-text-muted hover:text-text-primary hover:bg-white/[0.06] transition-colors"
               >
                 <X className="h-4 w-4" />
               </button>
             </div>
           </div>
-        </div>
+        </motion.div>
       )}
     </div>
   );
