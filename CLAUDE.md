@@ -14,6 +14,8 @@
 
 6. **Don't create unnecessary worktrees** - don't create them without need. If you want to use a worktree for some purpose - ask permission.
 
+7. **Always look for up-to-date library versions before installing them** - unless explicitly stated otherwise. Don't use outdated packages. **Exception:** if the agent determines that the latest version should not be installed due to potential compatibility issues, it must explicitly state this. To find the latest version, agent should use `npm view` or `yarn info` (depending on the package manager) and `web_search` if needed.
+
 ## Project context
 
 - Python 3.10+ project for automated reference image collection
