@@ -55,6 +55,24 @@ function formatDateLabel(dateStr: string): string {
   return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
 }
 
+/** Pad sparse data with zero-count entries for every date in [from, to]. */
+function fillGaps(
+  sparse: { date: string; count: number }[],
+  from: string,
+  to: string,
+): { date: string; count: number }[] {
+  const lookup = new Map(sparse.map((d) => [d.date, d.count]));
+  const result: { date: string; count: number }[] = [];
+  const cursor = new Date(from + "T00:00:00");
+  const end = new Date(to + "T00:00:00");
+  while (cursor <= end) {
+    const iso = cursor.toISOString().slice(0, 10);
+    result.push({ date: iso, count: lookup.get(iso) ?? 0 });
+    cursor.setDate(cursor.getDate() + 1);
+  }
+  return result;
+}
+
 const roleLabel: Record<string, string> = {
   admin: "Admin",
   premium: "Premium",
@@ -373,62 +391,50 @@ export function AdminDashboard() {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           {/* Requests per day */}
           <ChartCard title="Requests per day" delay={0.05}>
-            {summary.requests_per_day.length === 0 ? (
-              <EmptyState message="No requests in this period" />
-            ) : (
-              <ResponsiveContainer width="100%" height={220}>
-                <AreaChart data={summary.requests_per_day} margin={{ top: 4, right: 4, bottom: 0, left: -20 }}>
-                  <defs>
-                    <linearGradient id="reqGrad" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor={ACCENT} stopOpacity={0.2} />
-                      <stop offset="100%" stopColor={ACCENT} stopOpacity={0} />
-                    </linearGradient>
-                  </defs>
-                  <XAxis dataKey="date" tick={<DateTick />} axisLine={false} tickLine={false} interval="preserveStartEnd" />
-                  <YAxis tick={{ fill: NEUTRAL, fontSize: 10 }} axisLine={false} tickLine={false} />
-                  <Tooltip content={<ChartTooltip />} cursor={{ stroke: NEUTRAL, strokeDasharray: "4 4" }} />
-                  <Area type="monotone" dataKey="count" stroke={ACCENT} strokeWidth={2} fill="url(#reqGrad)" dot={false} activeDot={{ r: 4, fill: ACCENT, stroke: "transparent" }} />
-                </AreaChart>
-              </ResponsiveContainer>
-            )}
+            <ResponsiveContainer width="100%" height={220}>
+              <AreaChart data={fillGaps(summary.requests_per_day, fromDate, toDate)} margin={{ top: 4, right: 4, bottom: 0, left: -20 }}>
+                <defs>
+                  <linearGradient id="reqGrad" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor={ACCENT} stopOpacity={0.2} />
+                    <stop offset="100%" stopColor={ACCENT} stopOpacity={0} />
+                  </linearGradient>
+                </defs>
+                <XAxis dataKey="date" tick={<DateTick />} axisLine={false} tickLine={false} interval="preserveStartEnd" />
+                <YAxis tick={{ fill: NEUTRAL, fontSize: 10 }} axisLine={false} tickLine={false} allowDecimals={false} />
+                <Tooltip content={<ChartTooltip />} cursor={{ stroke: NEUTRAL, strokeDasharray: "4 4" }} />
+                <Area type="monotone" dataKey="count" stroke={ACCENT} strokeWidth={2} fill="url(#reqGrad)" dot={false} activeDot={{ r: 4, fill: ACCENT, stroke: "transparent" }} />
+              </AreaChart>
+            </ResponsiveContainer>
           </ChartCard>
 
           {/* Active users per day */}
           <ChartCard title="Active users per day" delay={0.1}>
-            {summary.users_per_day.length === 0 ? (
-              <EmptyState message="No active users in this period" />
-            ) : (
-              <ResponsiveContainer width="100%" height={220}>
-                <AreaChart data={summary.users_per_day} margin={{ top: 4, right: 4, bottom: 0, left: -20 }}>
-                  <defs>
-                    <linearGradient id="usersGrad" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor={SUCCESS} stopOpacity={0.2} />
-                      <stop offset="100%" stopColor={SUCCESS} stopOpacity={0} />
-                    </linearGradient>
-                  </defs>
-                  <XAxis dataKey="date" tick={<DateTick />} axisLine={false} tickLine={false} interval="preserveStartEnd" />
-                  <YAxis tick={{ fill: NEUTRAL, fontSize: 10 }} axisLine={false} tickLine={false} />
-                  <Tooltip content={<ChartTooltip />} cursor={{ stroke: NEUTRAL, strokeDasharray: "4 4" }} />
-                  <Area type="monotone" dataKey="count" stroke={SUCCESS} strokeWidth={2} fill="url(#usersGrad)" dot={false} activeDot={{ r: 4, fill: SUCCESS, stroke: "transparent" }} />
-                </AreaChart>
-              </ResponsiveContainer>
-            )}
+            <ResponsiveContainer width="100%" height={220}>
+              <AreaChart data={fillGaps(summary.users_per_day, fromDate, toDate)} margin={{ top: 4, right: 4, bottom: 0, left: -20 }}>
+                <defs>
+                  <linearGradient id="usersGrad" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor={SUCCESS} stopOpacity={0.2} />
+                    <stop offset="100%" stopColor={SUCCESS} stopOpacity={0} />
+                  </linearGradient>
+                </defs>
+                <XAxis dataKey="date" tick={<DateTick />} axisLine={false} tickLine={false} interval="preserveStartEnd" />
+                <YAxis tick={{ fill: NEUTRAL, fontSize: 10 }} axisLine={false} tickLine={false} allowDecimals={false} />
+                <Tooltip content={<ChartTooltip />} cursor={{ stroke: NEUTRAL, strokeDasharray: "4 4" }} />
+                <Area type="monotone" dataKey="count" stroke={SUCCESS} strokeWidth={2} fill="url(#usersGrad)" dot={false} activeDot={{ r: 4, fill: SUCCESS, stroke: "transparent" }} />
+              </AreaChart>
+            </ResponsiveContainer>
           </ChartCard>
 
           {/* Collections per day */}
           <ChartCard title="Collections per day" delay={0.15}>
-            {summary.collections_per_day.length === 0 ? (
-              <EmptyState message="No collections in this period" />
-            ) : (
-              <ResponsiveContainer width="100%" height={220}>
-                <BarChart data={summary.collections_per_day} margin={{ top: 4, right: 4, bottom: 0, left: -20 }}>
-                  <XAxis dataKey="date" tick={<DateTick />} axisLine={false} tickLine={false} interval="preserveStartEnd" />
-                  <YAxis tick={{ fill: NEUTRAL, fontSize: 10 }} axisLine={false} tickLine={false} />
-                  <Tooltip content={<ChartTooltip />} cursor={{ fill: "rgba(255,255,255,0.02)" }} />
-                  <Bar dataKey="count" {...commonBarProps} fill="#a78bfa" />
-                </BarChart>
-              </ResponsiveContainer>
-            )}
+            <ResponsiveContainer width="100%" height={220}>
+              <BarChart data={fillGaps(summary.collections_per_day, fromDate, toDate)} margin={{ top: 4, right: 4, bottom: 0, left: -20 }}>
+                <XAxis dataKey="date" tick={<DateTick />} axisLine={false} tickLine={false} interval="preserveStartEnd" />
+                <YAxis tick={{ fill: NEUTRAL, fontSize: 10 }} axisLine={false} tickLine={false} allowDecimals={false} />
+                <Tooltip content={<ChartTooltip />} cursor={{ fill: "rgba(255,255,255,0.02)" }} />
+                <Bar dataKey="count" {...commonBarProps} fill="#a78bfa" />
+              </BarChart>
+            </ResponsiveContainer>
           </ChartCard>
 
           {/* Role distribution */}
@@ -578,31 +584,25 @@ export function AdminDashboard() {
               </div>
             </div>
 
-            {userUsage.requests_per_day.length > 0 ? (
-              <div className="glass rounded-xl p-4 border border-border">
-                <h4 className="text-[11px] font-medium text-text-muted uppercase tracking-wider mb-4">
-                  Requests per day
-                </h4>
-                <ResponsiveContainer width="100%" height={200}>
-                  <AreaChart data={userUsage.requests_per_day} margin={{ top: 4, right: 4, bottom: 0, left: -20 }}>
-                    <defs>
-                      <linearGradient id="userReqGrad" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="0%" stopColor={ACCENT} stopOpacity={0.2} />
-                        <stop offset="100%" stopColor={ACCENT} stopOpacity={0} />
-                      </linearGradient>
-                    </defs>
-                    <XAxis dataKey="date" tick={<DateTick />} axisLine={false} tickLine={false} interval="preserveStartEnd" />
-                    <YAxis tick={{ fill: NEUTRAL, fontSize: 10 }} axisLine={false} tickLine={false} />
-                    <Tooltip content={<ChartTooltip />} cursor={{ stroke: NEUTRAL, strokeDasharray: "4 4" }} />
-                    <Area type="monotone" dataKey="count" stroke={ACCENT} strokeWidth={2} fill="url(#userReqGrad)" dot={false} activeDot={{ r: 4, fill: ACCENT, stroke: "transparent" }} />
-                  </AreaChart>
-                </ResponsiveContainer>
-              </div>
-            ) : (
-              <div className="glass rounded-xl p-6 border border-border">
-                <EmptyState message="No requests from this user in the selected period" />
-              </div>
-            )}
+            <div className="glass rounded-xl p-4 border border-border">
+              <h4 className="text-[11px] font-medium text-text-muted uppercase tracking-wider mb-4">
+                Requests per day
+              </h4>
+              <ResponsiveContainer width="100%" height={200}>
+                <AreaChart data={fillGaps(userUsage.requests_per_day, fromDate, toDate)} margin={{ top: 4, right: 4, bottom: 0, left: -20 }}>
+                  <defs>
+                    <linearGradient id="userReqGrad" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor={ACCENT} stopOpacity={0.2} />
+                      <stop offset="100%" stopColor={ACCENT} stopOpacity={0} />
+                    </linearGradient>
+                  </defs>
+                  <XAxis dataKey="date" tick={<DateTick />} axisLine={false} tickLine={false} interval="preserveStartEnd" />
+                  <YAxis tick={{ fill: NEUTRAL, fontSize: 10 }} axisLine={false} tickLine={false} allowDecimals={false} />
+                  <Tooltip content={<ChartTooltip />} cursor={{ stroke: NEUTRAL, strokeDasharray: "4 4" }} />
+                  <Area type="monotone" dataKey="count" stroke={ACCENT} strokeWidth={2} fill="url(#userReqGrad)" dot={false} activeDot={{ r: 4, fill: ACCENT, stroke: "transparent" }} />
+                </AreaChart>
+              </ResponsiveContainer>
+            </div>
           </motion.div>
         )}
       </motion.div>
