@@ -12,6 +12,8 @@
 
 5. **After reading CLAUDE.md, read AGENT.md** — AGENT.md contains the project description, full structure, pipeline details, API endpoints, role system, key parameters, and provider configuration. It's the single source of truth about the project. Start there when you need to understand how things work.
 
+6. **Don't create unnecessary worktrees** - don't create them without need. If you want to use a worktree for some purpose - ask permission.
+
 ## Project context
 
 - Python 3.10+ project for automated reference image collection
