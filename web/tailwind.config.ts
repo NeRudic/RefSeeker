@@ -7,13 +7,21 @@ export default {
     extend: {
       colors: {
         obsidian: {
-          950: "#09090b",
-          900: "#0f0f14",
-          850: "#13131a",
-          800: "#18181b",
-          750: "#1f1f26",
-          700: "#27272a",
-          600: "#3f3f46",
+          950: "rgb(var(--obsidian-950) / <alpha-value>)",
+          900: "rgb(var(--obsidian-900) / <alpha-value>)",
+          850: "rgb(var(--obsidian-850) / <alpha-value>)",
+          800: "rgb(var(--obsidian-800) / <alpha-value>)",
+          750: "rgb(var(--obsidian-750) / <alpha-value>)",
+          700: "rgb(var(--obsidian-700) / <alpha-value>)",
+          600: "rgb(var(--obsidian-600) / <alpha-value>)",
+        },
+        zinc: {
+          100: "rgb(var(--zinc-100) / <alpha-value>)",
+          200: "rgb(var(--zinc-200) / <alpha-value>)",
+          300: "rgb(var(--zinc-300) / <alpha-value>)",
+          400: "rgb(var(--zinc-400) / <alpha-value>)",
+          500: "rgb(var(--zinc-500) / <alpha-value>)",
+          600: "rgb(var(--zinc-600) / <alpha-value>)",
         },
         accent: {
           400: "#818cf8",
@@ -29,7 +37,7 @@ export default {
       backgroundImage: {
         "accent-gradient": "linear-gradient(135deg, #6366f1 0%, #8b5cf6 50%, #a855f7 100%)",
         "accent-gradient-h": "linear-gradient(90deg, #6366f1 0%, #8b5cf6 50%, #a855f7 100%)",
-        "mesh-pattern": "radial-gradient(ellipse at top, rgba(99,102,241,0.08) 0%, transparent 60%)",
+        "mesh-pattern": "radial-gradient(ellipse at top, rgba(99,102,241,var(--mesh-opacity,0.08)) 0%, transparent 60%)",
       },
       animation: {
         "fade-in": "fadeIn 0.5s ease-out",

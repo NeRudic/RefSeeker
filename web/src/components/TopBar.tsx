@@ -1,6 +1,7 @@
 import { Menu, LogOut } from "lucide-react";
 import { useAuth } from "../hooks/useAuth";
 import { useNavigate } from "react-router-dom";
+import { ThemeToggle } from "./ThemeToggle";
 
 export function TopBar({ onMenuClick }: { onMenuClick: () => void }) {
   const { authenticated, user, remaining, logout } = useAuth();
@@ -23,6 +24,7 @@ export function TopBar({ onMenuClick }: { onMenuClick: () => void }) {
       <div className="hidden lg:block" />
 
       <div className="flex items-center gap-4">
+        <ThemeToggle />
         {authenticated && user && (
           <>
             <div className="hidden sm:flex items-center gap-2 text-sm">

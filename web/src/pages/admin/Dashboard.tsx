@@ -127,22 +127,22 @@ export function Dashboard() {
                     <stop offset="100%" stopColor="#6366f1" stopOpacity={0.0} />
                   </linearGradient>
                 </defs>
-                <CartesianGrid stroke="#27272a" strokeDasharray="3 3" />
+                <CartesianGrid stroke="var(--obsidian-700)" strokeDasharray="3 3" />
                 <XAxis
                   dataKey="date"
                   tickFormatter={formatDate}
-                  stroke="#52525b"
+                  stroke="var(--zinc-600)"
                   tick={{ fontSize: 11 }}
                   tickLine={false}
                 />
-                <YAxis stroke="#52525b" tick={{ fontSize: 11 }} tickLine={false} axisLine={false} />
+                <YAxis stroke="var(--zinc-600)" tick={{ fontSize: 11 }} tickLine={false} axisLine={false} />
                 <Tooltip
                   contentStyle={{
-                    backgroundColor: "#18181b",
-                    border: "1px solid #27272a",
+                    backgroundColor: "var(--obsidian-800)",
+                    border: "1px solid var(--obsidian-700)",
                     borderRadius: "8px",
                     fontSize: "12px",
-                    color: "#e4e4e7",
+                    color: "var(--zinc-200)",
                   }}
                   labelFormatter={formatDate}
                 />
@@ -164,22 +164,22 @@ export function Dashboard() {
           <div className="h-64">
             <ResponsiveContainer width="100%" height="100%">
               <LineChart data={data.users_per_day}>
-                <CartesianGrid stroke="#27272a" strokeDasharray="3 3" />
+                <CartesianGrid stroke="var(--obsidian-700)" strokeDasharray="3 3" />
                 <XAxis
                   dataKey="date"
                   tickFormatter={formatDate}
-                  stroke="#52525b"
+                  stroke="var(--zinc-600)"
                   tick={{ fontSize: 11 }}
                   tickLine={false}
                 />
-                <YAxis stroke="#52525b" tick={{ fontSize: 11 }} tickLine={false} axisLine={false} allowDecimals={false} />
+                <YAxis stroke="var(--zinc-600)" tick={{ fontSize: 11 }} tickLine={false} axisLine={false} allowDecimals={false} />
                 <Tooltip
                   contentStyle={{
-                    backgroundColor: "#18181b",
-                    border: "1px solid #27272a",
+                    backgroundColor: "var(--obsidian-800)",
+                    border: "1px solid var(--obsidian-700)",
                     borderRadius: "8px",
                     fontSize: "12px",
-                    color: "#e4e4e7",
+                    color: "var(--zinc-200)",
                   }}
                   labelFormatter={formatDate}
                 />
@@ -205,22 +205,22 @@ export function Dashboard() {
           <div className="h-64">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={data.collections_per_day}>
-                <CartesianGrid stroke="#27272a" strokeDasharray="3 3" />
+                <CartesianGrid stroke="var(--obsidian-700)" strokeDasharray="3 3" />
                 <XAxis
                   dataKey="date"
                   tickFormatter={formatDate}
-                  stroke="#52525b"
+                  stroke="var(--zinc-600)"
                   tick={{ fontSize: 11 }}
                   tickLine={false}
                 />
-                <YAxis stroke="#52525b" tick={{ fontSize: 11 }} tickLine={false} axisLine={false} allowDecimals={false} />
+                <YAxis stroke="var(--zinc-600)" tick={{ fontSize: 11 }} tickLine={false} axisLine={false} allowDecimals={false} />
                 <Tooltip
                   contentStyle={{
-                    backgroundColor: "#18181b",
-                    border: "1px solid #27272a",
+                    backgroundColor: "var(--obsidian-800)",
+                    border: "1px solid var(--obsidian-700)",
                     borderRadius: "8px",
                     fontSize: "12px",
-                    color: "#e4e4e7",
+                    color: "var(--zinc-200)",
                   }}
                   labelFormatter={formatDate}
                 />
@@ -251,17 +251,17 @@ export function Dashboard() {
                     {data.role_distribution.map((entry) => (
                       <Cell
                         key={entry.role}
-                        fill={ROLE_COLORS[entry.role] || "#52525b"}
+                        fill={ROLE_COLORS[entry.role] || "var(--zinc-600)"}
                       />
                     ))}
                   </Pie>
                   <Tooltip
                     contentStyle={{
-                      backgroundColor: "#18181b",
-                      border: "1px solid #27272a",
+                      backgroundColor: "var(--obsidian-800)",
+                      border: "1px solid var(--obsidian-700)",
                       borderRadius: "8px",
                       fontSize: "12px",
-                      color: "#e4e4e7",
+                      color: "var(--zinc-200)",
                     }}
                   />
                 </PieChart>
@@ -275,7 +275,7 @@ export function Dashboard() {
               <div key={entry.role} className="flex items-center gap-2 text-xs text-zinc-400">
                 <span
                   className="w-2.5 h-2.5 rounded-full"
-                  style={{ backgroundColor: ROLE_COLORS[entry.role] || "#52525b" }}
+                  style={{ backgroundColor: ROLE_COLORS[entry.role] || "var(--zinc-600)" }}
                 />
                 {entry.role} ({entry.count})
               </div>

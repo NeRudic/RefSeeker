@@ -14,6 +14,7 @@
 - httpx — асинхронная загрузка
 - React 19 + Vite 8 + TypeScript 5.9 + Tailwind CSS 4 — фронтенд
 - Framer Motion 12 — анимации
+- **Light/dark theme** — CSS Variables + Tailwind `darkMode: "class"`, toggle switch в хедере
 - TanStack Query 5 — управление состоянием
 - Recharts 3.8 — графики в админ-дашборде
 
