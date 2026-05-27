@@ -19,7 +19,10 @@
     --zinc-500: 100 116 139;
     --zinc-600: 148 163 184;
 
-    --mesh-opacity: 0.6;
+    --bg-pattern:
+      radial-gradient(ellipse 60% 45% at 25% 10%, rgba(99,102,241,0.10) 0%, transparent 50%),
+      radial-gradient(ellipse 50% 40% at 75% 85%, rgba(236,72,153,0.08) 0%, transparent 50%),
+      radial-gradient(ellipse 40% 35% at 50% 50%, rgba(99,102,241,0.04) 0%, transparent 50%);
   }
 
   .dark {
@@ -38,7 +41,7 @@
     --zinc-500: 113 113 122;
     --zinc-600: 82 82 91;
 
-    --mesh-opacity: 0.08;
+    --bg-pattern: radial-gradient(ellipse 70% 50% at 50% 0%, rgba(99,102,241,0.10) 0%, transparent 60%);
   }
 
   * {

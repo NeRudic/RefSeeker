@@ -37,7 +37,7 @@ export default {
       backgroundImage: {
         "accent-gradient": "linear-gradient(135deg, #6366f1 0%, #8b5cf6 50%, #a855f7 100%)",
         "accent-gradient-h": "linear-gradient(90deg, #6366f1 0%, #8b5cf6 50%, #a855f7 100%)",
-        "mesh-pattern": "radial-gradient(ellipse at top, rgba(99,102,241,var(--mesh-opacity,0.08)) 0%, transparent 60%)",
+        "mesh-pattern": "var(--bg-pattern)",
       },
       animation: {
         "fade-in": "fadeIn 0.5s ease-out",
