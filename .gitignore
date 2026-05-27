@@ -9,4 +9,7 @@ last-session.txt
 logs/
 build/
 *.egg-info/
-dist/
+
+# frontend
+web/node_modules/
+web/dist/
