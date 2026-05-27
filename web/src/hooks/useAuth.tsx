@@ -69,28 +69,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const login = async (email: string, password: string) => {
     const data = await apiPost<{
-      user: User;
       access_token: string;
       refresh_token: string;
     }>("/auth/login", { email, password });
     setTokens(data.access_token, data.refresh_token);
-    setUser(data.user);
-    setUsageToday(data.user.usage_today);
-    setDailyLimit(data.user.daily_limit);
-    setRemaining(Math.max(0, data.user.daily_limit - data.user.usage_today));
+    await refreshMe();
   };
 
   const register = async (email: string, password: string) => {
     const data = await apiPost<{
-      user: User;
       access_token: string;
       refresh_token: string;
     }>("/auth/register", { email, password });
     setTokens(data.access_token, data.refresh_token);
-    setUser(data.user);
-    setUsageToday(data.user.usage_today);
-    setDailyLimit(data.user.daily_limit);
-    setRemaining(Math.max(0, data.user.daily_limit - data.user.usage_today));
+    await refreshMe();
   };
 
   const logout = () => {
